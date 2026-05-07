@@ -1,4 +1,4 @@
-export const APP_VERSION = 'APP v01.01.06';
+export const APP_VERSION = 'APP v01.01.07';
 
 export interface SecretStoreBinding {
   get(): Promise<string>;
@@ -9,6 +9,7 @@ export interface Env {
   MERCADOPAGO_ACCESS_TOKEN: SecretStoreBinding | string;
   MERCADOPAGO_WEBHOOK_SECRET: SecretStoreBinding | string;
   MERCADOPAGO_PUBLIC_KEY?: SecretStoreBinding | string;
+  MERCADOPAGO_3DS_VALIDATION?: string;
   ENVIRONMENT?: string;
   SPONSOR_PUBLIC_BASE_URL?: string;
   SPONSOR_API_BASE_URL?: string;

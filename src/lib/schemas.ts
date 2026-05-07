@@ -30,6 +30,18 @@ const PayerAddressSchema = z.object({
   complement: z.string().trim().max(80).optional().or(z.literal('')),
 });
 
+const PayerPhoneSchema = z
+  .union([
+    z
+      .string()
+      .trim()
+      .min(8)
+      .max(32)
+      .regex(/^[0-9+().\s-]+$/),
+    z.literal(''),
+  ])
+  .optional();
+
 export const CreateOrderSchema = z.object({
   project: z.string().optional(),
   amount: z.union([z.string(), z.number()]),
@@ -37,6 +49,7 @@ export const CreateOrderSchema = z.object({
   firstName: z.string().trim().min(1).max(80),
   lastName: z.string().trim().min(1).max(80),
   email: z.email(),
+  phone: PayerPhoneSchema,
   token: z.string().trim().min(8).max(256),
   paymentMethodId: z.string().trim().min(1).max(80),
   paymentType: z.enum(['credit_card', 'debit_card']).default('credit_card'),

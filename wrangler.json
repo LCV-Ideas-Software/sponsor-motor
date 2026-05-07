@@ -25,6 +25,7 @@
   },
   "vars": {
     "ENVIRONMENT": "production",
+    "MERCADOPAGO_3DS_VALIDATION": "on_fraud_risk",
     "SPONSOR_PUBLIC_BASE_URL": "https://www.lcv.dev",
     "SPONSOR_API_BASE_URL": "https://sponsor-motor.lcv.app.br"
   },

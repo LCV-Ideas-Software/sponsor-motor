@@ -5,12 +5,14 @@ import { webhookManifest } from './lib/webhook-signature.ts';
 
 const mercadoPagoMocks = vi.hoisted(() => ({
   fetchMercadoPagoPayment: vi.fn(),
+  fetchMercadoPagoOrder: vi.fn(),
 }));
 
 vi.mock('./lib/mercadopago.ts', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./lib/mercadopago.ts')>();
   return {
     ...actual,
+    fetchMercadoPagoOrder: mercadoPagoMocks.fetchMercadoPagoOrder,
     fetchMercadoPagoPayment: mercadoPagoMocks.fetchMercadoPagoPayment,
   };
 });
@@ -87,6 +89,7 @@ describe('Mercado Pago Checkout Pro fallback', () => {
 
 describe('Mercado Pago webhook', () => {
   beforeEach(() => {
+    mercadoPagoMocks.fetchMercadoPagoOrder.mockReset();
     mercadoPagoMocks.fetchMercadoPagoPayment.mockReset();
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -364,5 +367,140 @@ describe('Mercado Pago webhook', () => {
       await expect(response.json()).resolves.toEqual({ ok: true });
       expect(d1.run, `topic ${sample.type}`).toHaveBeenCalled();
     }
+  });
+});
+
+describe('Mercado Pago status fallback', () => {
+  beforeEach(() => {
+    mercadoPagoMocks.fetchMercadoPagoOrder.mockReset();
+    mercadoPagoMocks.fetchMercadoPagoPayment.mockReset();
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('consults the Orders API when a local status is still non-terminal and an order id is available', async () => {
+    mercadoPagoMocks.fetchMercadoPagoOrder.mockResolvedValueOnce({
+      id: 'ORD-STATUS',
+      external_reference: 'sp_lcv-ideas-software_00000000-0000-4000-8000-000000000010',
+      status: 'processed',
+      status_detail: 'accredited',
+      total_paid_amount: '12.00',
+      currency: 'BRL',
+      transactions: {
+        payments: [
+          {
+            id: 'PAY-STATUS',
+            amount: '12.00',
+            paid_amount: '12.00',
+            status: 'processed',
+            status_detail: 'accredited',
+          },
+        ],
+      },
+    });
+    const run = vi.fn(async () => ({ success: true }));
+    let firstCalls = 0;
+    const first = vi.fn(async () => {
+      firstCalls++;
+      if (firstCalls === 1) {
+        return {
+          external_reference: 'sp_lcv-ideas-software_00000000-0000-4000-8000-000000000010',
+          project_slug: 'lcv-ideas-software',
+          provider_api: 'orders',
+          preference_id: null,
+          sponsor_order_id: 'ORD-STATUS',
+          payment_id: 'PAY-STATUS',
+          payment_resource_id: null,
+          status: 'action_required',
+          status_detail: 'pending_challenge',
+          amount_cents: 1200,
+          currency: 'BRL',
+          created_at: 1,
+          updated_at: 1,
+        };
+      }
+      return {
+        external_reference: 'sp_lcv-ideas-software_00000000-0000-4000-8000-000000000010',
+        project_slug: 'lcv-ideas-software',
+        provider_api: 'orders',
+        preference_id: null,
+        sponsor_order_id: 'ORD-STATUS',
+        payment_id: 'PAY-STATUS',
+        payment_resource_id: null,
+        status: 'processed',
+        status_detail: 'accredited',
+        amount_cents: 1200,
+        currency: 'BRL',
+        created_at: 1,
+        updated_at: 2,
+      };
+    });
+    const bind = vi.fn(() => ({ run, first }));
+    const prepare = vi.fn(() => ({ bind }));
+    const db = { prepare } as unknown as D1Database;
+
+    const response = await app.fetch(
+      new Request(
+        'https://sponsor-motor.lcv.app.br/api/status/sp_lcv-ideas-software_00000000-0000-4000-8000-000000000010',
+      ),
+      envWithDb(db),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ status: 'processed', status_detail: 'accredited' });
+    expect(mercadoPagoMocks.fetchMercadoPagoOrder).toHaveBeenCalledWith('APP_USR-test-token', 'ORD-STATUS');
+    expect(bind).toHaveBeenCalledWith(
+      'ORD-STATUS',
+      'PAY-STATUS',
+      null,
+      null,
+      'processed',
+      'accredited',
+      1200,
+      'BRL',
+      expect.any(Number),
+      'sp_lcv-ideas-software_00000000-0000-4000-8000-000000000010',
+    );
+  });
+
+  it('returns the local status if the Orders API fallback is temporarily unavailable', async () => {
+    mercadoPagoMocks.fetchMercadoPagoOrder.mockRejectedValueOnce(new Error('upstream unavailable'));
+    const first = vi.fn(async () => ({
+      external_reference: 'sp_lcv-ideas-software_00000000-0000-4000-8000-000000000011',
+      project_slug: 'lcv-ideas-software',
+      provider_api: 'orders',
+      preference_id: null,
+      sponsor_order_id: 'ORD-PENDING',
+      payment_id: null,
+      payment_resource_id: null,
+      status: 'action_required',
+      status_detail: 'pending_challenge',
+      amount_cents: 1200,
+      currency: 'BRL',
+      created_at: 1,
+      updated_at: 1,
+    }));
+    const bind = vi.fn(() => ({ run: vi.fn(), first }));
+    const prepare = vi.fn(() => ({ bind }));
+    const db = { prepare } as unknown as D1Database;
+
+    const response = await app.fetch(
+      new Request(
+        'https://sponsor-motor.lcv.app.br/api/status/sp_lcv-ideas-software_00000000-0000-4000-8000-000000000011',
+      ),
+      envWithDb(db),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      sponsor_order_id: 'ORD-PENDING',
+      status: 'action_required',
+      status_detail: 'pending_challenge',
+    });
   });
 });

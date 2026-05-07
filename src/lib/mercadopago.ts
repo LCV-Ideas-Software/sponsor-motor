@@ -1,4 +1,5 @@
 import { MercadoPagoConfig, Order, Payment } from 'mercadopago';
+import type { CreateOrderRequest } from 'mercadopago/dist/clients/order/create/types';
 import { amountFromCents } from './money.ts';
 import { PROJECT_BY_SLUG, type SponsorProjectSlug } from './projects.ts';
 
@@ -62,12 +63,21 @@ export interface OrderRequest {
   payerFirstName: string;
   payerLastName: string;
   payerIdentification?: { type: string; number: string } | undefined;
+  payerPhone?: MercadoPagoPhone | undefined;
   payerAddress: MercadoPagoAddress;
   payerRegistrationDate: string;
   firstPurchaseOnline: boolean;
+  threeDsValidation?: ThreeDsValidation | undefined;
 }
 
 const SPONSOR_ITEM_CATEGORY_ID = 'services';
+
+export type ThreeDsValidation = 'always' | 'on_fraud_risk';
+
+export interface MercadoPagoPhone {
+  area_code: string;
+  number: string;
+}
 
 export interface MercadoPagoAddress {
   zip_code: string;
@@ -76,7 +86,7 @@ export interface MercadoPagoAddress {
   neighborhood: string;
   city: string;
   state: string;
-  complement?: string | undefined;
+  complement?: string;
 }
 
 type HeadersWithRaw = Headers & {
@@ -113,6 +123,7 @@ function sdkErrorMessage(error: unknown, fallback: string): string {
       status?: unknown;
       statusCode?: unknown;
       cause?: unknown;
+      errors?: unknown;
     };
     if (typeof response.status === 'number') details.push(`status=${response.status}`);
     if (typeof response.statusCode === 'number') details.push(`status=${response.statusCode}`);
@@ -120,10 +131,15 @@ function sdkErrorMessage(error: unknown, fallback: string): string {
     if (typeof response.error === 'string' && response.error) details.push(response.error);
     if (typeof response.cause === 'string' && response.cause) {
       details.push(response.cause);
-    } else if (Array.isArray(response.cause)) {
-      for (const cause of response.cause) {
+    } else {
+      const causes = Array.isArray(response.cause)
+        ? response.cause
+        : Array.isArray(response.errors)
+          ? response.errors
+          : [];
+      for (const cause of causes) {
         if (!cause || typeof cause !== 'object') continue;
-        const item = cause as { code?: unknown; description?: unknown; message?: unknown };
+        const item = cause as { code?: unknown; description?: unknown; message?: unknown; details?: unknown };
         const code = typeof item.code === 'string' ? item.code : undefined;
         const description =
           typeof item.description === 'string'
@@ -131,7 +147,11 @@ function sdkErrorMessage(error: unknown, fallback: string): string {
             : typeof item.message === 'string'
               ? item.message
               : undefined;
-        if (code || description) details.push([code, description].filter(Boolean).join(': '));
+        const nestedDetails = Array.isArray(item.details)
+          ? item.details.filter((detail): detail is string => typeof detail === 'string').join('; ')
+          : undefined;
+        if (code || description || nestedDetails)
+          details.push([code, description, nestedDetails].filter(Boolean).join(': '));
       }
     }
   }
@@ -172,49 +192,6 @@ export function isMercadoPagoLookupNotFound(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
   if (error instanceof MercadoPagoLookupError) return error.status === 404 || isNotFoundMessage(error.message);
   return isNotFoundMessage(error.message);
-}
-
-function mercadoPagoApiErrorMessage(status: number, payload: unknown, fallback: string): string {
-  const details: string[] = [`status=${status}`];
-  if (payload && typeof payload === 'object') {
-    const response = payload as {
-      message?: unknown;
-      error?: unknown;
-      errors?: unknown;
-      cause?: unknown;
-    };
-    if (typeof response.message === 'string' && response.message) details.push(response.message);
-    if (typeof response.error === 'string' && response.error) details.push(response.error);
-    const items = Array.isArray(response.errors)
-      ? response.errors
-      : Array.isArray(response.cause)
-        ? response.cause
-        : [];
-    for (const item of items) {
-      if (!item || typeof item !== 'object') continue;
-      const error = item as { code?: unknown; message?: unknown; description?: unknown; details?: unknown };
-      const code = typeof error.code === 'string' ? error.code : undefined;
-      const message =
-        typeof error.message === 'string'
-          ? error.message
-          : typeof error.description === 'string'
-            ? error.description
-            : undefined;
-      const nestedDetails = Array.isArray(error.details)
-        ? error.details.filter((detail): detail is string => typeof detail === 'string').join('; ')
-        : undefined;
-      details.push([code, message, nestedDetails].filter(Boolean).join(': '));
-    }
-  } else if (typeof payload === 'string' && payload) {
-    details.push(payload);
-  }
-  return `${fallback}: ${[...new Set(details)].join(' | ')}`;
-}
-
-async function parseMercadoPagoResponse(response: Response): Promise<unknown> {
-  const contentType = response.headers.get('content-type') || '';
-  if (contentType.includes('application/json')) return response.json();
-  return response.text();
 }
 
 function extractMercadoPagoOrderResponse(payload: unknown): MercadoPagoOrderResponse | undefined {
@@ -260,6 +237,7 @@ export async function createMercadoPagoOrder(request: OrderRequest): Promise<Ord
     first_name: request.payerFirstName,
     last_name: request.payerLastName,
     ...(request.payerIdentification ? { identification: request.payerIdentification } : {}),
+    ...(request.payerPhone ? { phone: request.payerPhone } : {}),
     address: request.payerAddress,
   };
 
@@ -286,7 +264,7 @@ export async function createMercadoPagoOrder(request: OrderRequest): Promise<Ord
     config: {
       online: {
         transaction_security: {
-          validation: 'on_fraud_risk' as const,
+          validation: request.threeDsValidation || 'on_fraud_risk',
           liability_shift: 'required' as const,
         },
       },
@@ -299,21 +277,28 @@ export async function createMercadoPagoOrder(request: OrderRequest): Promise<Ord
         },
       ],
     },
+  } satisfies CreateOrderRequest & {
+    shipment: { address: MercadoPagoAddress };
+    config: {
+      online: {
+        transaction_security: {
+          validation: ThreeDsValidation;
+          liability_shift: 'required';
+        };
+      };
+    };
   };
 
-  const response = await fetch('https://api.mercadopago.com/v1/orders', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${request.accessToken}`,
-      'Content-Type': 'application/json',
-      'X-Idempotency-Key': request.externalReference,
-    },
-    body: JSON.stringify(orderBody),
-  });
-  const payload = await parseMercadoPagoResponse(response);
-  const data = extractMercadoPagoOrderResponse(payload);
-  if (!response.ok && !data) {
-    throw new Error(mercadoPagoApiErrorMessage(response.status, payload, 'Mercado Pago order creation failed.'));
+  let data: MercadoPagoOrderResponse | undefined;
+  try {
+    const payload = await new Order(mercadoPagoClient(request.accessToken)).create({
+      body: orderBody,
+      requestOptions: { idempotencyKey: request.externalReference },
+    });
+    data = extractMercadoPagoOrderResponse(payload);
+  } catch (error: unknown) {
+    data = extractMercadoPagoOrderResponse(error);
+    if (!data) throw new Error(sdkErrorMessage(error, 'Mercado Pago order creation failed.'));
   }
   if (!data?.id) throw new Error('Mercado Pago did not return a valid order.');
 

@@ -9,6 +9,8 @@ import {
   fetchMercadoPagoPayment,
   isMercadoPagoLookupNotFound,
   type MercadoPagoOrderResponse,
+  type MercadoPagoPhone,
+  type ThreeDsValidation,
 } from './lib/mercadopago.ts';
 import { amountFromCents, centsFromAmount, nowMs } from './lib/money.ts';
 import { getAllowedOrigin } from './lib/origins.ts';
@@ -71,6 +73,58 @@ function normalizeAddress(input: {
   };
 }
 
+function normalizePhone(input: string | undefined): MercadoPagoPhone | undefined {
+  const digits = (input || '').replace(/\D/g, '');
+  if (!digits) return undefined;
+  const national = digits.startsWith('55') && digits.length >= 12 ? digits.slice(2) : digits;
+  if (national.length < 10 || national.length > 11) return undefined;
+  return {
+    area_code: national.slice(0, 2),
+    number: national.slice(2),
+  };
+}
+
+function threeDsValidation(env: Env): ThreeDsValidation {
+  return env.MERCADOPAGO_3DS_VALIDATION === 'always' ? 'always' : 'on_fraud_risk';
+}
+
+function logInfo(message: string, details: Record<string, unknown>): void {
+  console.log(`[sponsor-motor] ${message}`, details);
+}
+
+function isTerminalPaymentStatus(status: string | null | undefined): boolean {
+  return (
+    !!status &&
+    ['processed', 'failed', 'rejected', 'cancelled', 'canceled', 'refunded', 'charged_back'].includes(status)
+  );
+}
+
+async function refreshStatusFromMercadoPagoOrder(env: ResolvedEnv, db: D1Database, orderId: string): Promise<void> {
+  const order = await fetchMercadoPagoOrder(env.MERCADOPAGO_ACCESS_TOKEN, orderId);
+  const externalReference = order.external_reference;
+  const payment = order.transactions?.payments?.[0];
+  const status = payment?.status || order.status;
+  if (!externalReference || !status) return;
+  await updatePaymentStatus(db, {
+    externalReference,
+    orderId: order.id || orderId,
+    paymentId: payment?.id,
+    status,
+    statusDetail: payment?.status_detail || order.status_detail,
+    amountCents: centsFromMercadoPagoAmount(
+      payment?.paid_amount || payment?.amount || order.total_paid_amount || order.total_amount,
+    ),
+    currency: order.currency || 'BRL',
+    now: nowMs(),
+  });
+  logInfo('status_fallback_order_lookup', {
+    orderId,
+    externalReference,
+    status,
+    statusDetail: payment?.status_detail || order.status_detail,
+  });
+}
+
 app.use('*', timing());
 
 app.use(
@@ -128,6 +182,8 @@ app.post('/api/orders', async (c) => {
   const lastName = parsed.data.lastName.trim();
   const name = `${firstName} ${lastName}`;
   const address = normalizeAddress(parsed.data.address);
+  const phone = normalizePhone(parsed.data.phone);
+  const threeDsMode = threeDsValidation(c.env);
 
   await upsertOrderPayment(c.env.BIGDATA_DB, {
     externalReference,
@@ -152,9 +208,11 @@ app.post('/api/orders', async (c) => {
     payerFirstName: firstName,
     payerLastName: lastName,
     payerIdentification: parsed.data.identification,
+    payerPhone: phone,
     payerAddress: address,
     payerRegistrationDate: new Date(parsed.data.payerRegistrationDate).toISOString(),
     firstPurchaseOnline: parsed.data.firstPurchaseOnline,
+    threeDsValidation: threeDsMode,
   }).catch(async (error: unknown) => {
     await markOrderCreationFailed(c.env.BIGDATA_DB, externalReference, nowMs());
     throw error;
@@ -171,6 +229,17 @@ app.post('/api/orders', async (c) => {
     payerEmailHash: await optionalHash(email),
     payerNameHash: await optionalHash(name),
     now: nowMs(),
+  });
+  logInfo('order_created', {
+    externalReference,
+    orderId: order.orderId,
+    paymentId: order.paymentId,
+    status: order.paymentStatus || order.status,
+    statusDetail: order.paymentStatusDetail || order.statusDetail,
+    amountCents,
+    threeDsValidation: threeDsMode,
+    hasPhone: !!phone,
+    hasChallengeUrl: !!order.challengeUrl,
   });
 
   return c.json({
@@ -193,6 +262,20 @@ app.get('/api/status/:externalReference', async (c) => {
   if (!/^sp_[a-z0-9-]+_[0-9a-f-]{36}$/i.test(externalReference)) return c.json({ error: 'Referência inválida.' }, 400);
   const status = await findPaymentStatus(c.env.BIGDATA_DB, externalReference);
   if (!status) return c.json({ error: 'Pagamento não encontrado.' }, 404);
+  if (status.sponsor_order_id && !isTerminalPaymentStatus(status.status)) {
+    try {
+      const resolved = await resolveEnv(c.env);
+      await refreshStatusFromMercadoPagoOrder(resolved, c.env.BIGDATA_DB, status.sponsor_order_id);
+      const refreshed = await findPaymentStatus(c.env.BIGDATA_DB, externalReference);
+      if (refreshed) return c.json(refreshed);
+    } catch (error) {
+      console.warn('[sponsor-motor] Mercado Pago status fallback failed.', {
+        externalReference,
+        orderId: status.sponsor_order_id,
+        error: error instanceof Error ? error.message : 'unknown_error',
+      });
+    }
+  }
   return c.json(status);
 });
 
@@ -444,6 +527,13 @@ app.post('/api/webhooks/mercadopago', async (c) => {
     status,
     payloadSha256,
     receivedAt,
+  });
+  logInfo('webhook_ack', {
+    eventType,
+    topic,
+    providerId: dataId || undefined,
+    externalReference,
+    status,
   });
 
   return c.json({ ok: true });

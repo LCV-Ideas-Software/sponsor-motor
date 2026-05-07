@@ -1,5 +1,21 @@
 # Changelog
 
+## [APP v01.01.07] - 2026-05-07
+
+### Added
+
+- Adicionado checklist/manual `docs/mercadopago-integration-quality.md` com matriz de boas práticas Mercado Pago, decisão explícita de 3DS e itens não aplicáveis ao fluxo de doação digital.
+- Adicionado campo opcional de telefone na página `/sponsor`, enviado ao Mercado Pago como `payer.phone.area_code` e `payer.phone.number` quando preenchido.
+- Adicionada lógica de backup em `GET /api/status/:externalReference` para consultar a Orders API quando o status local ainda não é terminal e há `Order ID` disponível.
+- Adicionados logs estruturados sem PII para criação de orders, webhooks aceitos e consultas fallback de status.
+- Adicionado suporte controlado a `MERCADOPAGO_3DS_VALIDATION=always` como modo estrito, mantendo produção em `on_fraud_risk`.
+- Adicionado teste de regressão para garantir que o Challenge 3DS seja lido do caminho oficial de Orders API: `transactions.payments[i].payment_method.transaction_security.url`.
+
+### Changed
+
+- A criação de orders passou a usar `Order.create` da SDK oficial `mercadopago@2.12.0`, preservando `X-Idempotency-Key`, payload Orders API, 3DS no nó `config.online.transaction_security` e tratamento de recusas com `data.id`.
+- Ajustada a mensagem pós-3DS na página pública para não usar jargão técnico como `order`.
+
 ## [APP v01.01.06] - 2026-05-07
 
 ### Changed

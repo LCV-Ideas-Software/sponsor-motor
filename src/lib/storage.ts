@@ -14,6 +14,22 @@ export interface OrderPaymentRecord {
   now: number;
 }
 
+export interface PaymentStatusRecord {
+  external_reference: string;
+  project_slug: SponsorProjectSlug;
+  provider_api: string | null;
+  preference_id: string | null;
+  sponsor_order_id: string | null;
+  payment_id: string | null;
+  payment_resource_id: string | null;
+  status: string;
+  status_detail: string | null;
+  amount_cents: number;
+  currency: string | null;
+  created_at: number;
+  updated_at: number;
+}
+
 export async function upsertOrderPayment(db: D1Database, record: OrderPaymentRecord): Promise<void> {
   await db
     .prepare(
@@ -192,7 +208,10 @@ export async function insertEvent(
     .run();
 }
 
-export async function findPaymentStatus(db: D1Database, externalReference: string): Promise<unknown | null> {
+export async function findPaymentStatus(
+  db: D1Database,
+  externalReference: string,
+): Promise<PaymentStatusRecord | null> {
   const row = await db
     .prepare(
       `SELECT external_reference, project_slug, provider_api, preference_id, sponsor_order_id, payment_id, payment_resource_id, status, status_detail,
@@ -201,6 +220,6 @@ export async function findPaymentStatus(db: D1Database, externalReference: strin
        WHERE external_reference = ?`,
     )
     .bind(externalReference)
-    .first();
+    .first<PaymentStatusRecord>();
   return row || null;
 }

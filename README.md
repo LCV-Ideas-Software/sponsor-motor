@@ -4,12 +4,13 @@ Cloudflare Worker dedicado para processar apoios/doações via Mercado Pago Chec
 
 ## Status
 
-Stable bootstrap. Current release: **APP v01.01.06**.
+Stable bootstrap. Current release: **APP v01.01.07**.
 
 ## Histórico de versões
 
 | Versão          | Mudanças                                                                                                                                                                                                                                   |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **`v01.01.07`** | **Boas práticas Mercado Pago/3DS.** Criação de Orders via SDK oficial, telefone opcional do pagador, fallback server-side de status por Orders API, logs sem PII e manual de qualidade da integração.                                      |
 | **`v01.01.06`** | **Fluxo 100% Orders API.** Desativa o fallback Checkout Pro/Conta Mercado Pago, remove a opção wallet, pré-registra tentativas antes da chamada ao MP e preserva estados de webhook ao separar IDs `PAY...` de Payment IDs numéricos.      |
 | **`v01.01.05`** | **Webhook Mercado Pago com `ts` em segundos.** Assinaturas reais da dashboard agora validam `x-signature.ts` em segundos ou milissegundos, corrigindo `401` em notificações como `payment.created`.                                        |
 | **`v01.01.04`** | **Webhook Mercado Pago compatível com a dashboard.** Todos os tópicos marcados no painel são aceitos com assinatura válida; testes oficiais com IDs fictícios retornam `200 OK` e ficam auditados sem esconder falhas reais não-404.       |
@@ -30,7 +31,7 @@ Stable bootstrap. Current release: **APP v01.01.06**.
 - Secrets Store: `mp-access-token`, `mercadopago-webhook-secret`, `mercadopago-public-key`.
 - Backend Mercado Pago: SDK oficial `mercadopago`, com `nodejs_compat` no Worker para suportar a biblioteca Node.
 - Frontend Mercado Pago: a página `https://www.lcv.dev/sponsor` carrega MercadoPago.js V2 e renderiza Card Payment Brick com Secure Fields.
-- Backend principal: `POST /api/orders` cria uma order em `/v1/orders` com cartão tokenizado, item categorizado e 3DS por risco.
+- Backend principal: `POST /api/orders` cria uma order com `Order.create` da SDK oficial `mercadopago@2.12.0`, cartão tokenizado, item categorizado e 3DS por risco.
 - Fallback Checkout Pro: `POST /api/preferences` permanece bloqueado com `410 Gone`; a integração ativa é somente Checkout Transparente + Orders API.
 - O custom domain `sponsor-motor.lcv.app.br` fica declarado em `wrangler.json` como `custom_domain: true`; o token de deploy precisa manter permissão de gerenciamento de Workers/Custom Domains na zona `lcv.app.br`.
 
@@ -70,6 +71,20 @@ npm ci
 npm run check
 ```
 
+## Qualidade da integração Mercado Pago
+
+O checklist operacional fica em [`docs/mercadopago-integration-quality.md`](docs/mercadopago-integration-quality.md).
+
+Resumo dos pontos críticos preservados:
+
+- Orders API pura: `POST /api/preferences` segue bloqueado com `410 Gone`.
+- Card Payment Brick/Secure Fields: a LCV não recebe número, validade nem CVV.
+- SDK oficial no backend: criação/consulta de orders usam `mercadopago`.
+- Idempotência: cada tentativa usa `X-Idempotency-Key` único derivado da `external_reference`.
+- 3DS: `config.online.transaction_security.validation=on_fraud_risk`, `liability_shift=required` e Challenge lido em `transactions.payments[i].payment_method.transaction_security.url`.
+- Fallback de status: se o webhook demorar, `/api/status/:externalReference` consulta a Orders API server-side sem expor credenciais.
+- Logs internos: eventos de criação, webhook e fallback são registrados sem PII.
+
 ## Deploy
 
 O workflow `Deploy` injeta o `D1_DATABASE_ID` do GitHub Secret, aplica migrations remotas no `bigdata_db` e publica o Worker no Cloudflare.
@@ -83,7 +98,7 @@ O workflow `Deploy` injeta o `D1_DATABASE_ID` do GitHub Secret, aplica migration
 - Dados de cartão são capturados exclusivamente pelos Secure Fields do Card Payment Brick; `sponsor-motor` recebe apenas token transitório.
 - `items.category_id` é enviado como `services` para melhorar sinais de aprovação do Mercado Pago em serviços digitais.
 - Orders usam `config.online.transaction_security.validation=on_fraud_risk` e `liability_shift=required` para 3DS conforme risco.
-- Orders enviam `payer.first_name`, `payer.last_name`, `payer.address`, `shipment.address` e `additional_info` antifraude aceito pela Orders API para melhorar a medição de qualidade sem persistir PII em claro.
+- Orders enviam `payer.first_name`, `payer.last_name`, `payer.phone` quando informado, `payer.address`, `shipment.address` e `additional_info` antifraude aceito pela Orders API para melhorar a medição de qualidade sem persistir PII em claro.
 - O pagamento é considerado confirmado apenas após webhook/consulta server-side ao Mercado Pago.
 
 ## Links

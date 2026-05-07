@@ -1,5 +1,11 @@
 # Changelog
 
+## [APP v01.00.01] - 2026-05-07
+
+### Changed
+
+- Adicionado `deepseek-cli` ao catálogo aceito por `/api/projects` e `/api/preferences`, permitindo checkout central em `https://www.lcv.dev/sponsor?project=deepseek-cli`.
+
 ## [APP v01.00.00] - 2026-05-07
 
 ### Added

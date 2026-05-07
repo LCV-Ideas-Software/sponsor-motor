@@ -4,12 +4,13 @@ Cloudflare Worker dedicado para criar preferências de apoio/doação via Mercad
 
 ## Status
 
-Stable bootstrap. Current release: **APP v01.00.00**.
+Stable bootstrap. Current release: **APP v01.00.01**.
 
 ## Histórico de versões
 
 | Versão          | Mudanças                                                                                                                                                                                                                                   |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **`v01.00.01`** | **DeepSeek CLI no catálogo de sponsor.** `deepseek-cli` passou a ser aceito em `/api/projects` e `/api/preferences`, habilitando o checkout central por `project=deepseek-cli`.                                                            |
 | **`v01.00.00`** | **Mercado Pago sponsor backend.** Novo Worker dedicado com Checkout Pro preferences, webhook assinado, auditoria em tabelas `sponsor_*` no `bigdata_db`, Secrets Store bindings e página pública central em `https://www.lcv.dev/sponsor`. |
 
 ## Arquitetura

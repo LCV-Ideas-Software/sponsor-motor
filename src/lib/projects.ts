@@ -4,6 +4,7 @@ export const SPONSOR_PROJECTS = [
   { slug: 'calculadora-app', name: 'Calculadora App', repo: 'https://github.com/LCV-Ideas-Software/calculadora-app' },
   { slug: 'cross-review-v1', name: 'Cross Review v1', repo: 'https://github.com/LCV-Ideas-Software/cross-review-v1' },
   { slug: 'cross-review-v2', name: 'Cross Review v2', repo: 'https://github.com/LCV-Ideas-Software/cross-review-v2' },
+  { slug: 'deepseek-cli', name: 'DeepSeek CLI', repo: 'https://github.com/LCV-Ideas-Software/deepseek-cli' },
   { slug: 'grok-cli', name: 'Grok CLI', repo: 'https://github.com/LCV-Ideas-Software/grok-cli' },
   { slug: 'maestro-app', name: 'Maestro Editorial AI', repo: 'https://github.com/LCV-Ideas-Software/maestro-app' },
   { slug: 'mainsite-app', name: 'MainSite App', repo: 'https://github.com/LCV-Ideas-Software/mainsite-app' },

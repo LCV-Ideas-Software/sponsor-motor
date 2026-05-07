@@ -57,6 +57,12 @@ app.get('/', (c) =>
 
 app.get('/api/health', (c) => c.json({ ok: true, service: 'sponsor-motor', version: APP_VERSION }));
 
+app.get('/api/config', async (c) => {
+  const resolved = await resolveEnv(c.env);
+  if (!resolved.MERCADOPAGO_PUBLIC_KEY) return c.json({ error: 'Mercado Pago public key missing.' }, 500);
+  return c.json({ publicKey: resolved.MERCADOPAGO_PUBLIC_KEY, locale: 'pt-BR' });
+});
+
 app.get('/api/projects', (c) => c.json({ projects: SPONSOR_PROJECTS }));
 
 app.post('/api/preferences', async (c) => {

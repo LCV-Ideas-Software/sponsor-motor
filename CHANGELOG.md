@@ -12,12 +12,12 @@
 
 - Migrada a criação de preferências e a consulta de pagamentos para o SDK oficial `mercadopago`.
 - Adicionado `items.category_id=services` às preferências de apoio para atender à recomendação de aprovação de pagamentos do Mercado Pago.
-- Exposta a rota pública `GET /api/config` para entregar a Public Key usada pelo MercadoPago.js v2 no frontend.
+- Exposta a rota pública `GET /api/config` para entregar a Public Key a integrações frontend quando necessário.
 - Habilitado `nodejs_compat` no Worker para suportar a SDK oficial Node no runtime Cloudflare.
 
 ### Documentation
 
-- Documentado o fluxo MercadoPago.js v2 / Wallet Brick e a separação PCI: `sponsor-motor` não coleta dados de cartão; o checkout seguro é renderizado pelo Mercado Pago.
+- Documentada a separação PCI: `sponsor-motor` não coleta dados de cartão; o checkout seguro é concluído no ambiente Mercado Pago.
 
 ## [APP v01.00.01] - 2026-05-07
 

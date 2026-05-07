@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Cloudflare Worker for LCV Ideas & Software sponsor payments via Mercado Pago Checkout Pro.",
+  "description": "Cloudflare Worker for LCV Ideas & Software sponsor payments via Mercado Pago Checkout Transparente Orders API.",
   "license": "AGPL-3.0-or-later",
   "author": "LCV Ideas & Software",
   "repository": {

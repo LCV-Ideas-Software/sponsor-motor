@@ -3,12 +3,23 @@ import { cors } from 'hono/cors';
 import { timing } from 'hono/timing';
 import { APP_VERSION, type Env, type ResolvedEnv, resolveSecret } from './env.ts';
 import { optionalHash, sha256Hex } from './lib/crypto.ts';
-import { createMercadoPagoPreference, fetchMercadoPagoPayment } from './lib/mercadopago.ts';
+import {
+  createMercadoPagoOrder,
+  createMercadoPagoPreference,
+  fetchMercadoPagoOrder,
+  fetchMercadoPagoPayment,
+} from './lib/mercadopago.ts';
 import { amountFromCents, centsFromAmount, nowMs } from './lib/money.ts';
 import { getAllowedOrigin } from './lib/origins.ts';
 import { normalizeProjectSlug, PROJECT_BY_SLUG, SPONSOR_PROJECTS } from './lib/projects.ts';
-import { CreatePreferenceSchema } from './lib/schemas.ts';
-import { findPaymentStatus, insertEvent, insertPreference, updatePaymentStatus } from './lib/storage.ts';
+import { CreateOrderSchema, CreatePreferenceSchema } from './lib/schemas.ts';
+import {
+  findPaymentStatus,
+  insertEvent,
+  insertOrderPayment,
+  insertPreference,
+  updatePaymentStatus,
+} from './lib/storage.ts';
 import { verifyMercadoPagoWebhookSignature } from './lib/webhook-signature.ts';
 
 const app = new Hono<{ Bindings: Env }>();
@@ -33,6 +44,12 @@ function publicBaseUrl(env: Env): string {
 
 function apiBaseUrl(env: Env): string {
   return (env.SPONSOR_API_BASE_URL || 'https://sponsor-motor.lcv.app.br').replace(/\/$/, '');
+}
+
+function centsFromMercadoPagoAmount(value: string | number | undefined): number | undefined {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return undefined;
+  return Math.round(amount * 100);
 }
 
 app.use('*', timing());
@@ -120,6 +137,69 @@ app.post('/api/preferences', async (c) => {
   });
 });
 
+app.post('/api/orders', async (c) => {
+  const origin = c.req.header('origin');
+  if (origin && !getAllowedOrigin(origin)) return c.json({ error: 'Origin not allowed.' }, 403);
+
+  const body = await c.req.json().catch(() => null);
+  const parsed = CreateOrderSchema.safeParse(body);
+  if (!parsed.success) return c.json({ error: 'Dados de pagamento inválidos.' }, 400);
+
+  const amountCents = centsFromAmount(parsed.data.amount);
+  if (amountCents === null) return c.json({ error: 'Informe um valor entre R$ 1,00 e R$ 10.000,00.' }, 400);
+
+  const projectSlug = normalizeProjectSlug(parsed.data.project);
+  const project = PROJECT_BY_SLUG.get(projectSlug);
+  if (!project) return c.json({ error: 'Projeto inválido.' }, 400);
+
+  const resolved = await resolveEnv(c.env);
+  const timestamp = nowMs();
+  const externalReference = `sp_${projectSlug}_${crypto.randomUUID()}`;
+  const email = parsed.data.email.trim().toLowerCase();
+  const name = parsed.data.name ? parsed.data.name.trim() : undefined;
+
+  const order = await createMercadoPagoOrder({
+    accessToken: resolved.MERCADOPAGO_ACCESS_TOKEN,
+    projectSlug,
+    externalReference,
+    amountCents,
+    token: parsed.data.token,
+    paymentMethodId: parsed.data.paymentMethodId,
+    paymentType: parsed.data.paymentType,
+    installments: parsed.data.installments,
+    payerEmail: email,
+    payerName: name,
+    payerIdentification: parsed.data.identification,
+  });
+
+  await insertOrderPayment(c.env.BIGDATA_DB, {
+    externalReference,
+    projectSlug,
+    orderId: order.orderId,
+    paymentId: order.paymentId,
+    status: order.paymentStatus || order.status || 'created',
+    statusDetail: order.paymentStatusDetail || order.statusDetail,
+    amountCents,
+    payerEmailHash: await optionalHash(email),
+    payerNameHash: await optionalHash(name),
+    now: timestamp,
+  });
+
+  return c.json({
+    orderId: order.orderId,
+    externalReference,
+    status: order.status,
+    statusDetail: order.statusDetail,
+    paymentId: order.paymentId,
+    paymentStatus: order.paymentStatus,
+    paymentStatusDetail: order.paymentStatusDetail,
+    challengeUrl: order.challengeUrl,
+    amount: amountFromCents(amountCents),
+    currency: 'BRL',
+    project,
+  });
+});
+
 app.get('/api/status/:externalReference', async (c) => {
   const externalReference = c.req.param('externalReference');
   if (!/^sp_[a-z0-9-]+_[0-9a-f-]{36}$/i.test(externalReference)) return c.json({ error: 'Referência inválida.' }, 400);
@@ -143,22 +223,40 @@ app.post('/api/webhooks/mercadopago', async (c) => {
   const requestId = c.req.header('x-request-id') || '';
   const signature = c.req.header('x-signature');
   const resolved = await resolveEnv(c.env);
+  const eventType = payload.type || payload.action || 'unknown';
+  const signatureDataId = eventType.includes('order') ? dataId.toLowerCase() : dataId;
 
   const verified = await verifyMercadoPagoWebhookSignature({
     secret: resolved.MERCADOPAGO_WEBHOOK_SECRET,
-    dataId,
+    dataId: signatureDataId,
     requestId,
     xSignature: signature,
   });
   if (!verified) return c.json({ error: 'Invalid signature.' }, 401);
 
-  const eventType = payload.type || payload.action || 'unknown';
   const receivedAt = nowMs();
   const payloadSha256 = await sha256Hex(rawBody);
   let externalReference: string | undefined;
   let status: string | undefined;
 
-  if (dataId && (eventType.includes('payment') || payload.type === 'payment')) {
+  if (dataId && eventType.includes('order')) {
+    const order = await fetchMercadoPagoOrder(resolved.MERCADOPAGO_ACCESS_TOKEN, dataId);
+    const payment = order.transactions?.payments?.[0];
+    externalReference = order.external_reference || undefined;
+    status = payment?.status || order.status || undefined;
+    if (externalReference && status) {
+      await updatePaymentStatus(c.env.BIGDATA_DB, {
+        externalReference,
+        orderId: order.id || dataId,
+        paymentId: payment?.id,
+        status,
+        statusDetail: payment?.status_detail || order.status_detail,
+        amountCents: centsFromMercadoPagoAmount(payment?.amount || order.total_amount),
+        currency: order.currency || 'BRL',
+        now: receivedAt,
+      });
+    }
+  } else if (dataId && (eventType.includes('payment') || payload.type === 'payment')) {
     const payment = await fetchMercadoPagoPayment(resolved.MERCADOPAGO_ACCESS_TOKEN, dataId);
     externalReference = payment.external_reference || undefined;
     status = payment.status || undefined;

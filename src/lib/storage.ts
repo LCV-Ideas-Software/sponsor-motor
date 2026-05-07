@@ -12,6 +12,19 @@ export interface PaymentRecord {
   now: number;
 }
 
+export interface OrderPaymentRecord {
+  externalReference: string;
+  projectSlug: SponsorProjectSlug;
+  orderId: string;
+  paymentId?: string | undefined;
+  status: string;
+  statusDetail?: string | undefined;
+  amountCents: number;
+  payerEmailHash: string | null;
+  payerNameHash: string | null;
+  now: number;
+}
+
 export async function insertPreference(db: D1Database, record: PaymentRecord): Promise<void> {
   await db
     .prepare(
@@ -35,10 +48,36 @@ export async function insertPreference(db: D1Database, record: PaymentRecord): P
     .run();
 }
 
+export async function insertOrderPayment(db: D1Database, record: OrderPaymentRecord): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO sponsor_payments (
+        external_reference, provider, provider_api, project_slug, sponsor_order_id, payment_id,
+        status, status_detail, amount_cents, currency, payer_email_hash, payer_name_hash,
+        created_at, updated_at
+      ) VALUES (?, 'mercadopago', 'orders', ?, ?, ?, ?, ?, ?, 'BRL', ?, ?, ?, ?)`,
+    )
+    .bind(
+      record.externalReference,
+      record.projectSlug,
+      record.orderId,
+      record.paymentId || null,
+      record.status,
+      record.statusDetail || null,
+      record.amountCents,
+      record.payerEmailHash,
+      record.payerNameHash,
+      record.now,
+      record.now,
+    )
+    .run();
+}
+
 export async function updatePaymentStatus(
   db: D1Database,
   args: {
     externalReference: string;
+    orderId?: string | undefined;
     paymentId?: string | undefined;
     merchantOrderId?: string | undefined;
     status: string;
@@ -51,7 +90,8 @@ export async function updatePaymentStatus(
   await db
     .prepare(
       `UPDATE sponsor_payments
-       SET payment_id = COALESCE(?, payment_id),
+       SET sponsor_order_id = COALESCE(?, sponsor_order_id),
+           payment_id = COALESCE(?, payment_id),
            merchant_order_id = COALESCE(?, merchant_order_id),
            status = ?,
            status_detail = ?,
@@ -61,6 +101,7 @@ export async function updatePaymentStatus(
        WHERE external_reference = ?`,
     )
     .bind(
+      args.orderId || null,
       args.paymentId || null,
       args.merchantOrderId || null,
       args.status,
@@ -106,7 +147,7 @@ export async function insertEvent(
 export async function findPaymentStatus(db: D1Database, externalReference: string): Promise<unknown | null> {
   const row = await db
     .prepare(
-      `SELECT external_reference, project_slug, preference_id, payment_id, status, status_detail,
+      `SELECT external_reference, project_slug, provider_api, preference_id, sponsor_order_id, payment_id, status, status_detail,
               amount_cents, currency, created_at, updated_at
        FROM sponsor_payments
        WHERE external_reference = ?`,

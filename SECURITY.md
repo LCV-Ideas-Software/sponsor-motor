@@ -6,4 +6,4 @@ Report security issues privately to the repository owner before public disclosur
 
 ## Payment Scope
 
-`sponsor-motor` never stores card data. Mercado Pago Checkout Pro handles payment collection in Mercado Pago's hosted environment; this Worker creates preferences with the official Mercado Pago SDK, validates webhooks, and stores minimal audit metadata.
+`sponsor-motor` never stores card data. MercadoPago.js V2/Card Payment Brick captures card details through secure fields, the Worker receives only the transient token, creates Checkout Transparente orders through the official Mercado Pago SDK, validates webhooks, and stores minimal audit metadata.

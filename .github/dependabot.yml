@@ -43,6 +43,7 @@ updates:
       runtime:
         patterns:
           - "hono"
+          - "mercadopago"
           - "zod"
         update-types:
           - "major"

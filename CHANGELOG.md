@@ -1,5 +1,18 @@
 # Changelog
 
+## [APP v01.01.00] - 2026-05-07
+
+### Changed
+
+- Migrado o fluxo principal de apoios para Checkout Transparente via Orders API (`/v1/orders`), mantendo `/api/preferences` apenas como compatibilidade legada.
+- Adicionada rota `POST /api/orders` para criar orders com cartão tokenizado pelo MercadoPago.js V2/Card Payment Brick.
+- Adicionados `items.category_id=services`, `processing_mode=automatic` e 3DS `on_fraud_risk`/`liability_shift=required` às orders.
+- Atualizado webhook para processar eventos `order` e registrar `Order ID`/`Payment ID` no `bigdata_db`.
+
+### Added
+
+- Adicionada migration `0002_sponsor_orders_api.sql` com `sponsor_order_id` e `provider_api` em `sponsor_payments`.
+
 ## [APP v01.00.03] - 2026-05-07
 
 ### Fixed

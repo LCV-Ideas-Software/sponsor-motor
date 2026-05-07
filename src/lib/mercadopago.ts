@@ -1,4 +1,4 @@
-import { MercadoPagoConfig, Payment, Preference } from 'mercadopago';
+import { MercadoPagoConfig, Order, Payment, Preference } from 'mercadopago';
 import { amountFromCents, appendQuery } from './money.ts';
 import { PROJECT_BY_SLUG, type SponsorProjectSlug } from './projects.ts';
 
@@ -8,10 +8,55 @@ export interface PreferenceResult {
   sandboxInitPoint?: string | undefined;
 }
 
+export interface OrderResult {
+  orderId: string;
+  externalReference?: string | undefined;
+  status?: string | undefined;
+  statusDetail?: string | undefined;
+  paymentId?: string | undefined;
+  paymentStatus?: string | undefined;
+  paymentStatusDetail?: string | undefined;
+  challengeUrl?: string | undefined;
+}
+
 interface MercadoPagoPreferenceResponse {
   id?: string;
   init_point?: string;
   sandbox_init_point?: string;
+}
+
+interface MercadoPagoOrderPayment {
+  id?: string;
+  amount?: string;
+  paid_amount?: string;
+  reference_id?: string;
+  status?: string;
+  status_detail?: string;
+  payment_method?: {
+    id?: string;
+    type?: string;
+    token?: string;
+    installments?: number;
+    transaction_security?: {
+      url?: string;
+      validation?: string;
+      liability_shift?: string;
+      status?: string;
+    };
+  };
+}
+
+interface MercadoPagoOrderResponse {
+  id?: string;
+  status?: string;
+  status_detail?: string;
+  external_reference?: string;
+  total_amount?: string;
+  total_paid_amount?: string;
+  currency?: string;
+  transactions?: {
+    payments?: MercadoPagoOrderPayment[];
+  };
 }
 
 export interface PreferenceRequest {
@@ -23,6 +68,20 @@ export interface PreferenceRequest {
   amountCents: number;
   payerEmail?: string | undefined;
   payerName?: string | undefined;
+}
+
+export interface OrderRequest {
+  accessToken: string;
+  projectSlug: SponsorProjectSlug;
+  externalReference: string;
+  amountCents: number;
+  token: string;
+  paymentMethodId: string;
+  paymentType: 'credit_card' | 'debit_card';
+  installments: number;
+  payerEmail: string;
+  payerName?: string | undefined;
+  payerIdentification?: { type: string; number: string } | undefined;
 }
 
 const SPONSOR_ITEM_CATEGORY_ID = 'services';
@@ -60,6 +119,23 @@ function sdkErrorMessage(error: unknown, fallback: string): string {
     if (typeof response.cause === 'string' && response.cause) return response.cause;
   }
   return fallback;
+}
+
+function amountStringFromCents(cents: number): string {
+  return amountFromCents(cents).toFixed(2);
+}
+
+function sponsorItem(projectSlug: SponsorProjectSlug, amount: string) {
+  const project = PROJECT_BY_SLUG.get(projectSlug);
+  return {
+    title: project ? `Apoio ${project.name}` : 'Apoio LCV Ideas & Software',
+    unit_price: amount,
+    quantity: 1,
+    external_code: projectSlug,
+    category_id: SPONSOR_ITEM_CATEGORY_ID,
+    type: 'service',
+    description: 'Apoio voluntario aos projetos da LCV Ideas & Software',
+  };
 }
 
 export async function createMercadoPagoPreference(request: PreferenceRequest): Promise<PreferenceResult> {
@@ -117,6 +193,77 @@ export async function createMercadoPagoPreference(request: PreferenceRequest): P
   };
 }
 
+export async function createMercadoPagoOrder(request: OrderRequest): Promise<OrderResult> {
+  const amount = amountStringFromCents(request.amountCents);
+  const paymentMethod = {
+    id: request.paymentMethodId,
+    type: request.paymentType,
+    token: request.token,
+    installments: request.installments,
+    statement_descriptor: 'LCV IDEAS',
+  };
+
+  const payer = {
+    email: request.payerEmail,
+    ...(request.payerName ? { first_name: request.payerName } : {}),
+    ...(request.payerIdentification ? { identification: request.payerIdentification } : {}),
+  };
+
+  const orderBody = {
+    type: 'online',
+    processing_mode: 'automatic',
+    capture_mode: 'automatic_async',
+    external_reference: request.externalReference,
+    total_amount: amount,
+    currency: 'BRL',
+    payer,
+    items: [sponsorItem(request.projectSlug, amount)],
+    config: {
+      online: {
+        transaction_security: {
+          validation: 'on_fraud_risk' as const,
+          liability_shift: 'required' as const,
+        },
+      },
+    },
+    transactions: {
+      payments: [
+        {
+          amount,
+          payment_method: paymentMethod,
+        },
+      ],
+    },
+    additional_info: {
+      source: 'sponsor-motor',
+      project_slug: request.projectSlug,
+    },
+  };
+
+  let data: MercadoPagoOrderResponse;
+  try {
+    data = await new Order(mercadoPagoClient(request.accessToken)).create({
+      body: orderBody,
+      requestOptions: { idempotencyKey: request.externalReference },
+    });
+  } catch (error) {
+    throw new Error(sdkErrorMessage(error, 'Mercado Pago order creation failed.'));
+  }
+  if (!data.id) throw new Error('Mercado Pago did not return a valid order.');
+
+  const payment = data.transactions?.payments?.[0];
+  return {
+    orderId: data.id,
+    externalReference: data.external_reference,
+    status: data.status,
+    statusDetail: data.status_detail,
+    paymentId: payment?.id,
+    paymentStatus: payment?.status,
+    paymentStatusDetail: payment?.status_detail,
+    challengeUrl: payment?.payment_method?.transaction_security?.url,
+  };
+}
+
 interface MercadoPagoPaymentResponse {
   id?: number | string;
   status?: string;
@@ -135,5 +282,13 @@ export async function fetchMercadoPagoPayment(
     return await new Payment(mercadoPagoClient(accessToken)).get({ id: paymentId });
   } catch (error) {
     throw new Error(sdkErrorMessage(error, 'Mercado Pago payment lookup failed.'));
+  }
+}
+
+export async function fetchMercadoPagoOrder(accessToken: string, orderId: string): Promise<MercadoPagoOrderResponse> {
+  try {
+    return await new Order(mercadoPagoClient(accessToken)).get({ id: orderId });
+  } catch (error) {
+    throw new Error(sdkErrorMessage(error, 'Mercado Pago order lookup failed.'));
   }
 }

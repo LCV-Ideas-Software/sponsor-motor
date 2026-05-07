@@ -47,4 +47,23 @@ describe('verifyMercadoPagoWebhookSignature', () => {
       }),
     ).resolves.toBe(true);
   });
+
+  it('accepts Mercado Pago signatures that use second-based timestamps', async () => {
+    const secret = 'secret';
+    const nowMs = Date.now();
+    const ts = String(Math.floor(nowMs / 1000));
+    const requestId = 'req-seconds';
+    const dataId = '157333592417';
+    const v1 = await hmacSha256Hex(secret, webhookManifest(dataId, requestId, ts));
+
+    await expect(
+      verifyMercadoPagoWebhookSignature({
+        secret,
+        dataId,
+        requestId,
+        xSignature: `ts=${ts},v1=${v1}`,
+        nowMs,
+      }),
+    ).resolves.toBe(true);
+  });
 });

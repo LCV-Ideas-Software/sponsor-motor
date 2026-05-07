@@ -1,5 +1,12 @@
 # Changelog
 
+## [APP v01.01.05] - 2026-05-07
+
+### Fixed
+
+- Corrigida a validação HMAC do webhook Mercado Pago para aceitar `x-signature.ts` em segundos ou milissegundos, preservando o valor original no manifesto assinado e normalizando apenas a checagem de idade.
+- Corrigida falha `401` em notificações reais como `payment.created` enviadas pela dashboard do Mercado Pago com timestamp no formato de segundos.
+
 ## [APP v01.01.04] - 2026-05-07
 
 ### Fixed

@@ -22,6 +22,11 @@ export function webhookManifest(dataId: string | undefined, requestId: string, t
   return `${idSegment}request-id:${requestId};ts:${timestamp};`;
 }
 
+function timestampToMilliseconds(timestamp: number): number {
+  // Mercado Pago docs show second-based examples even though the prose mentions milliseconds.
+  return timestamp < 1_000_000_000_000 ? timestamp * 1000 : timestamp;
+}
+
 export async function verifyMercadoPagoWebhookSignature(args: {
   secret: string;
   dataId?: string | undefined;
@@ -35,9 +40,10 @@ export async function verifyMercadoPagoWebhookSignature(args: {
 
   const timestamp = Number(parts.ts);
   if (!Number.isFinite(timestamp)) return false;
+  const timestampMs = timestampToMilliseconds(timestamp);
   const maxAgeMs = args.maxAgeMs ?? 15 * 60 * 1000;
   const nowMs = args.nowMs ?? Date.now();
-  if (Math.abs(nowMs - timestamp) > maxAgeMs) return false;
+  if (Math.abs(nowMs - timestampMs) > maxAgeMs) return false;
 
   const expected = await hmacSha256Hex(args.secret, webhookManifest(args.dataId, args.requestId, parts.ts));
   return timingSafeEqualHex(expected, parts.v1);

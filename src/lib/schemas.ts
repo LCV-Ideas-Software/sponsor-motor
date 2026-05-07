@@ -1,15 +1,5 @@
 import { z } from 'zod';
 
-export const CreatePreferenceSchema = z.object({
-  project: z.string().optional(),
-  amount: z.union([z.string(), z.number()]),
-  name: z.string().trim().max(120).optional(),
-  email: z.email().optional().or(z.literal('')),
-  walletOnly: z.boolean().optional(),
-});
-
-export type CreatePreferenceInput = z.infer<typeof CreatePreferenceSchema>;
-
 const PayerIdentificationSchema = z.object({
   type: z.string().trim().min(1).max(16),
   number: z

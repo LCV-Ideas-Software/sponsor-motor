@@ -1,12 +1,6 @@
-import { MercadoPagoConfig, Order, Payment, Preference } from 'mercadopago';
-import { amountFromCents, appendQuery } from './money.ts';
+import { MercadoPagoConfig, Order, Payment } from 'mercadopago';
+import { amountFromCents } from './money.ts';
 import { PROJECT_BY_SLUG, type SponsorProjectSlug } from './projects.ts';
-
-export interface PreferenceResult {
-  preferenceId: string;
-  initPoint: string;
-  sandboxInitPoint?: string | undefined;
-}
 
 export interface OrderResult {
   orderId: string;
@@ -17,12 +11,6 @@ export interface OrderResult {
   paymentStatus?: string | undefined;
   paymentStatusDetail?: string | undefined;
   challengeUrl?: string | undefined;
-}
-
-interface MercadoPagoPreferenceResponse {
-  id?: string;
-  init_point?: string;
-  sandbox_init_point?: string;
 }
 
 export interface MercadoPagoOrderPayment {
@@ -59,18 +47,6 @@ export interface MercadoPagoOrderResponse {
   transactions?: {
     payments?: MercadoPagoOrderPayment[];
   };
-}
-
-export interface PreferenceRequest {
-  accessToken: string;
-  publicBaseUrl: string;
-  apiBaseUrl: string;
-  projectSlug: SponsorProjectSlug;
-  externalReference: string;
-  amountCents: number;
-  payerEmail?: string | undefined;
-  payerName?: string | undefined;
-  walletOnly?: boolean | undefined;
 }
 
 export interface OrderRequest {
@@ -265,64 +241,6 @@ function sponsorItem(projectSlug: SponsorProjectSlug, amount: string) {
     category_id: SPONSOR_ITEM_CATEGORY_ID,
     type: 'service',
     description: 'Apoio voluntario aos projetos da LCV Ideas & Software',
-  };
-}
-
-export function buildMercadoPagoPreferenceBody(request: PreferenceRequest) {
-  const project = PROJECT_BY_SLUG.get(request.projectSlug);
-  const title = project ? `Apoio ${project.name}` : 'Apoio LCV Ideas & Software';
-  const amount = amountFromCents(request.amountCents);
-  const returnBase = `${request.publicBaseUrl.replace(/\/$/, '')}/sponsor`;
-  const notificationUrl = `${request.apiBaseUrl.replace(/\/$/, '')}/api/webhooks/mercadopago`;
-  const payer: { name?: string; email?: string } = {};
-  if (request.payerName) payer.name = request.payerName;
-  if (request.payerEmail) payer.email = request.payerEmail;
-
-  return {
-    items: [
-      {
-        id: request.projectSlug,
-        title,
-        description: 'Apoio voluntario aos projetos da LCV Ideas & Software',
-        category_id: SPONSOR_ITEM_CATEGORY_ID,
-        quantity: 1,
-        currency_id: 'BRL',
-        unit_price: amount,
-      },
-    ],
-    ...(Object.keys(payer).length ? { payer } : {}),
-    external_reference: request.externalReference,
-    ...(request.walletOnly ? { purpose: 'wallet_purchase' } : {}),
-    notification_url: notificationUrl,
-    back_urls: {
-      success: appendQuery(returnBase, { status: 'success', ref: request.externalReference }),
-      failure: appendQuery(returnBase, { status: 'failure', ref: request.externalReference }),
-      pending: appendQuery(returnBase, { status: 'pending', ref: request.externalReference }),
-    },
-    auto_return: 'approved',
-    statement_descriptor: 'LCV IDEAS',
-    metadata: {
-      project_slug: request.projectSlug,
-      source: 'sponsor-motor',
-    },
-  };
-}
-
-export async function createMercadoPagoPreference(request: PreferenceRequest): Promise<PreferenceResult> {
-  let data: MercadoPagoPreferenceResponse;
-  try {
-    data = await new Preference(mercadoPagoClient(request.accessToken)).create({
-      body: buildMercadoPagoPreferenceBody(request),
-    });
-  } catch (error) {
-    throw new Error(sdkErrorMessage(error, 'Mercado Pago preference creation failed.'));
-  }
-  if (!data.id || !data.init_point) throw new Error('Mercado Pago did not return a valid preference.');
-
-  return {
-    preferenceId: data.id,
-    initPoint: data.init_point,
-    sandboxInitPoint: data.sandbox_init_point,
   };
 }
 

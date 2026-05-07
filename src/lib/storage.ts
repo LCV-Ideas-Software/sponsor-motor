@@ -1,22 +1,11 @@
 import type { SponsorProjectSlug } from './projects.ts';
 
-export interface PaymentRecord {
-  externalReference: string;
-  projectSlug: SponsorProjectSlug;
-  preferenceId: string;
-  amountCents: number;
-  payerEmailHash: string | null;
-  payerNameHash: string | null;
-  initPoint: string;
-  sandboxInitPoint?: string | undefined;
-  now: number;
-}
-
 export interface OrderPaymentRecord {
   externalReference: string;
   projectSlug: SponsorProjectSlug;
-  orderId: string;
+  orderId?: string | undefined;
   paymentId?: string | undefined;
+  paymentResourceId?: string | undefined;
   status: string;
   statusDetail?: string | undefined;
   amountCents: number;
@@ -25,43 +14,44 @@ export interface OrderPaymentRecord {
   now: number;
 }
 
-export async function insertPreference(db: D1Database, record: PaymentRecord): Promise<void> {
+export async function upsertOrderPayment(db: D1Database, record: OrderPaymentRecord): Promise<void> {
   await db
     .prepare(
       `INSERT INTO sponsor_payments (
-        external_reference, provider, project_slug, preference_id, status, amount_cents, currency,
-        payer_email_hash, payer_name_hash, init_point, sandbox_init_point, created_at, updated_at
-      ) VALUES (?, 'mercadopago', ?, ?, 'preference_created', ?, 'BRL', ?, ?, ?, ?, ?, ?)`,
-    )
-    .bind(
-      record.externalReference,
-      record.projectSlug,
-      record.preferenceId,
-      record.amountCents,
-      record.payerEmailHash,
-      record.payerNameHash,
-      record.initPoint,
-      record.sandboxInitPoint || null,
-      record.now,
-      record.now,
-    )
-    .run();
-}
-
-export async function insertOrderPayment(db: D1Database, record: OrderPaymentRecord): Promise<void> {
-  await db
-    .prepare(
-      `INSERT INTO sponsor_payments (
-        external_reference, provider, provider_api, project_slug, sponsor_order_id, payment_id,
+        external_reference, provider, provider_api, project_slug, sponsor_order_id, payment_id, payment_resource_id,
         status, status_detail, amount_cents, currency, payer_email_hash, payer_name_hash,
         created_at, updated_at
-      ) VALUES (?, 'mercadopago', 'orders', ?, ?, ?, ?, ?, ?, 'BRL', ?, ?, ?, ?)`,
+      ) VALUES (?, 'mercadopago', 'orders', ?, ?, ?, ?, ?, ?, ?, 'BRL', ?, ?, ?, ?)
+      ON CONFLICT(external_reference) DO UPDATE SET
+        provider_api = 'orders',
+        project_slug = excluded.project_slug,
+        sponsor_order_id = COALESCE(excluded.sponsor_order_id, sponsor_payments.sponsor_order_id),
+        payment_id = COALESCE(excluded.payment_id, sponsor_payments.payment_id),
+        payment_resource_id = COALESCE(excluded.payment_resource_id, sponsor_payments.payment_resource_id),
+        status = CASE
+          WHEN sponsor_payments.status IN ('processed', 'failed', 'rejected', 'cancelled', 'canceled', 'refunded', 'charged_back')
+            THEN sponsor_payments.status
+          WHEN excluded.status = 'order_requested' AND sponsor_payments.status <> 'order_requested'
+            THEN sponsor_payments.status
+          ELSE excluded.status
+        END,
+        status_detail = CASE
+          WHEN sponsor_payments.status IN ('processed', 'failed', 'rejected', 'cancelled', 'canceled', 'refunded', 'charged_back')
+            THEN sponsor_payments.status_detail
+          ELSE COALESCE(excluded.status_detail, sponsor_payments.status_detail)
+        END,
+        amount_cents = excluded.amount_cents,
+        currency = excluded.currency,
+        payer_email_hash = COALESCE(excluded.payer_email_hash, sponsor_payments.payer_email_hash),
+        payer_name_hash = COALESCE(excluded.payer_name_hash, sponsor_payments.payer_name_hash),
+        updated_at = excluded.updated_at`,
     )
     .bind(
       record.externalReference,
       record.projectSlug,
-      record.orderId,
+      record.orderId || null,
       record.paymentId || null,
+      record.paymentResourceId || null,
       record.status,
       record.statusDetail || null,
       record.amountCents,
@@ -73,12 +63,27 @@ export async function insertOrderPayment(db: D1Database, record: OrderPaymentRec
     .run();
 }
 
+export async function markOrderCreationFailed(db: D1Database, externalReference: string, now: number): Promise<void> {
+  await db
+    .prepare(
+      `UPDATE sponsor_payments
+       SET status = 'order_creation_failed',
+           status_detail = COALESCE(status_detail, 'creation_failed'),
+           updated_at = ?
+       WHERE external_reference = ?
+         AND status = 'order_requested'`,
+    )
+    .bind(now, externalReference)
+    .run();
+}
+
 export async function updatePaymentStatus(
   db: D1Database,
   args: {
     externalReference: string;
     orderId?: string | undefined;
     paymentId?: string | undefined;
+    paymentResourceId?: string | undefined;
     merchantOrderId?: string | undefined;
     status: string;
     statusDetail?: string | undefined;
@@ -92,6 +97,7 @@ export async function updatePaymentStatus(
       `UPDATE sponsor_payments
        SET sponsor_order_id = COALESCE(?, sponsor_order_id),
            payment_id = COALESCE(?, payment_id),
+           payment_resource_id = COALESCE(?, payment_resource_id),
            merchant_order_id = COALESCE(?, merchant_order_id),
            status = ?,
            status_detail = ?,
@@ -103,6 +109,7 @@ export async function updatePaymentStatus(
     .bind(
       args.orderId || null,
       args.paymentId || null,
+      args.paymentResourceId || null,
       args.merchantOrderId || null,
       args.status,
       args.statusDetail || null,
@@ -118,6 +125,7 @@ export async function updatePaymentStatusByProviderIds(
   db: D1Database,
   args: {
     paymentId?: string | undefined;
+    paymentResourceId?: string | undefined;
     merchantOrderId?: string | undefined;
     orderId?: string | undefined;
     status: string;
@@ -125,7 +133,8 @@ export async function updatePaymentStatusByProviderIds(
     now: number;
   },
 ): Promise<void> {
-  if (!args.paymentId && !args.merchantOrderId && !args.orderId) return;
+  const paymentLookupId = args.paymentId || args.paymentResourceId;
+  if (!paymentLookupId && !args.merchantOrderId && !args.orderId) return;
   await db
     .prepare(
       `UPDATE sponsor_payments
@@ -133,6 +142,7 @@ export async function updatePaymentStatusByProviderIds(
            status_detail = COALESCE(?, status_detail),
            updated_at = ?
        WHERE (? IS NOT NULL AND payment_id = ?)
+          OR (? IS NOT NULL AND payment_resource_id = ?)
           OR (? IS NOT NULL AND merchant_order_id = ?)
           OR (? IS NOT NULL AND sponsor_order_id = ?)`,
     )
@@ -140,8 +150,10 @@ export async function updatePaymentStatusByProviderIds(
       args.status,
       args.statusDetail || null,
       args.now,
-      args.paymentId || null,
-      args.paymentId || null,
+      paymentLookupId || null,
+      paymentLookupId || null,
+      paymentLookupId || null,
+      paymentLookupId || null,
       args.merchantOrderId || null,
       args.merchantOrderId || null,
       args.orderId || null,
@@ -183,7 +195,7 @@ export async function insertEvent(
 export async function findPaymentStatus(db: D1Database, externalReference: string): Promise<unknown | null> {
   const row = await db
     .prepare(
-      `SELECT external_reference, project_slug, provider_api, preference_id, sponsor_order_id, payment_id, status, status_detail,
+      `SELECT external_reference, project_slug, provider_api, preference_id, sponsor_order_id, payment_id, payment_resource_id, status, status_detail,
               amount_cents, currency, created_at, updated_at
        FROM sponsor_payments
        WHERE external_reference = ?`,

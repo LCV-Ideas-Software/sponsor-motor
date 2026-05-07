@@ -5,7 +5,6 @@ import { APP_VERSION, type Env, type ResolvedEnv, resolveSecret } from './env.ts
 import { optionalHash, sha256Hex } from './lib/crypto.ts';
 import {
   createMercadoPagoOrder,
-  createMercadoPagoPreference,
   fetchMercadoPagoOrder,
   fetchMercadoPagoPayment,
   isMercadoPagoLookupNotFound,
@@ -14,14 +13,14 @@ import {
 import { amountFromCents, centsFromAmount, nowMs } from './lib/money.ts';
 import { getAllowedOrigin } from './lib/origins.ts';
 import { normalizeProjectSlug, PROJECT_BY_SLUG, SPONSOR_PROJECTS } from './lib/projects.ts';
-import { CreateOrderSchema, CreatePreferenceSchema } from './lib/schemas.ts';
+import { CreateOrderSchema } from './lib/schemas.ts';
 import {
   findPaymentStatus,
   insertEvent,
-  insertOrderPayment,
-  insertPreference,
+  markOrderCreationFailed,
   updatePaymentStatus,
   updatePaymentStatusByProviderIds,
+  upsertOrderPayment,
 } from './lib/storage.ts';
 import { verifyMercadoPagoWebhookSignature } from './lib/webhook-signature.ts';
 
@@ -43,10 +42,6 @@ async function resolveEnv(env: Env): Promise<ResolvedEnv> {
 
 function publicBaseUrl(env: Env): string {
   return (env.SPONSOR_PUBLIC_BASE_URL || 'https://www.lcv.dev').replace(/\/$/, '');
-}
-
-function apiBaseUrl(env: Env): string {
-  return (env.SPONSOR_API_BASE_URL || 'https://sponsor-motor.lcv.app.br').replace(/\/$/, '');
 }
 
 function centsFromMercadoPagoAmount(value: string | number | undefined): number | undefined {
@@ -107,59 +102,7 @@ app.get('/api/config', async (c) => {
 app.get('/api/projects', (c) => c.json({ projects: SPONSOR_PROJECTS }));
 
 app.post('/api/preferences', async (c) => {
-  const origin = c.req.header('origin');
-  if (origin && !getAllowedOrigin(origin)) return c.json({ error: 'Origin not allowed.' }, 403);
-
-  const body = await c.req.json().catch(() => null);
-  const parsed = CreatePreferenceSchema.safeParse(body);
-  if (!parsed.success) return c.json({ error: 'Dados inválidos.' }, 400);
-
-  const amountCents = centsFromAmount(parsed.data.amount);
-  if (amountCents === null) return c.json({ error: 'Informe um valor entre R$ 1,00 e R$ 10.000,00.' }, 400);
-
-  const projectSlug = normalizeProjectSlug(parsed.data.project);
-  const project = PROJECT_BY_SLUG.get(projectSlug);
-  if (!project) return c.json({ error: 'Projeto inválido.' }, 400);
-
-  const resolved = await resolveEnv(c.env);
-  const timestamp = nowMs();
-  const externalReference = `sp_${projectSlug}_${crypto.randomUUID()}`;
-  const email = parsed.data.email ? parsed.data.email.trim().toLowerCase() : undefined;
-  const name = parsed.data.name ? parsed.data.name.trim() : undefined;
-
-  const preference = await createMercadoPagoPreference({
-    accessToken: resolved.MERCADOPAGO_ACCESS_TOKEN,
-    publicBaseUrl: publicBaseUrl(c.env),
-    apiBaseUrl: apiBaseUrl(c.env),
-    projectSlug,
-    externalReference,
-    amountCents,
-    payerEmail: email,
-    payerName: name,
-    walletOnly: parsed.data.walletOnly === true,
-  });
-
-  await insertPreference(c.env.BIGDATA_DB, {
-    externalReference,
-    projectSlug,
-    preferenceId: preference.preferenceId,
-    amountCents,
-    payerEmailHash: await optionalHash(email),
-    payerNameHash: await optionalHash(name),
-    initPoint: preference.initPoint,
-    sandboxInitPoint: preference.sandboxInitPoint,
-    now: timestamp,
-  });
-
-  return c.json({
-    preferenceId: preference.preferenceId,
-    externalReference,
-    initPoint: preference.initPoint,
-    sandboxInitPoint: preference.sandboxInitPoint,
-    amount: amountFromCents(amountCents),
-    currency: 'BRL',
-    project,
-  });
+  return c.json({ error: 'Checkout Pro preferences are disabled. Use /api/orders.' }, 410);
 });
 
 app.post('/api/orders', async (c) => {
@@ -186,6 +129,16 @@ app.post('/api/orders', async (c) => {
   const name = `${firstName} ${lastName}`;
   const address = normalizeAddress(parsed.data.address);
 
+  await upsertOrderPayment(c.env.BIGDATA_DB, {
+    externalReference,
+    projectSlug,
+    status: 'order_requested',
+    amountCents,
+    payerEmailHash: await optionalHash(email),
+    payerNameHash: await optionalHash(name),
+    now: timestamp,
+  });
+
   const order = await createMercadoPagoOrder({
     accessToken: resolved.MERCADOPAGO_ACCESS_TOKEN,
     projectSlug,
@@ -202,9 +155,12 @@ app.post('/api/orders', async (c) => {
     payerAddress: address,
     payerRegistrationDate: new Date(parsed.data.payerRegistrationDate).toISOString(),
     firstPurchaseOnline: parsed.data.firstPurchaseOnline,
+  }).catch(async (error: unknown) => {
+    await markOrderCreationFailed(c.env.BIGDATA_DB, externalReference, nowMs());
+    throw error;
   });
 
-  await insertOrderPayment(c.env.BIGDATA_DB, {
+  await upsertOrderPayment(c.env.BIGDATA_DB, {
     externalReference,
     projectSlug,
     orderId: order.orderId,
@@ -214,7 +170,7 @@ app.post('/api/orders', async (c) => {
     amountCents,
     payerEmailHash: await optionalHash(email),
     payerNameHash: await optionalHash(name),
-    now: timestamp,
+    now: nowMs(),
   });
 
   return c.json({
@@ -456,7 +412,7 @@ app.post('/api/webhooks/mercadopago', async (c) => {
     if (payment && externalReference && status) {
       await updatePaymentStatus(c.env.BIGDATA_DB, {
         externalReference,
-        paymentId: payment.id ? String(payment.id) : dataId,
+        paymentResourceId: payment.id ? String(payment.id) : dataId,
         merchantOrderId: payment.merchant_order_id ? String(payment.merchant_order_id) : undefined,
         status,
         statusDetail: payment.status_detail,

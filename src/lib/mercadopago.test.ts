@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { buildMercadoPagoPreferenceBody, createMercadoPagoOrder } from './mercadopago.ts';
+import { createMercadoPagoOrder } from './mercadopago.ts';
 
 const baseRequest = {
   accessToken: 'APP_USR-test-token',
@@ -113,28 +113,6 @@ describe('createMercadoPagoOrder', () => {
       status: 'failed',
       paymentStatus: 'failed',
       paymentStatusDetail: 'invalid_card_token',
-    });
-  });
-});
-
-describe('buildMercadoPagoPreferenceBody', () => {
-  it('marks Mercado Pago account preferences as wallet-only when requested', () => {
-    const body = buildMercadoPagoPreferenceBody({
-      accessToken: 'APP_USR-test-token',
-      publicBaseUrl: 'https://www.lcv.dev',
-      apiBaseUrl: 'https://sponsor-motor.lcv.app.br',
-      projectSlug: 'lcv-ideas-software',
-      externalReference: baseRequest.externalReference,
-      amountCents: 1000,
-      payerEmail: baseRequest.payerEmail,
-      payerName: `${baseRequest.payerFirstName} ${baseRequest.payerLastName}`,
-      walletOnly: true,
-    });
-
-    expect(body).toMatchObject({
-      purpose: 'wallet_purchase',
-      external_reference: baseRequest.externalReference,
-      notification_url: 'https://sponsor-motor.lcv.app.br/api/webhooks/mercadopago',
     });
   });
 });

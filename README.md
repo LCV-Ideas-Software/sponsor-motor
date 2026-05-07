@@ -4,12 +4,13 @@ Cloudflare Worker dedicado para processar apoios/doações via Mercado Pago Chec
 
 ## Status
 
-Stable bootstrap. Current release: **APP v01.01.05**.
+Stable bootstrap. Current release: **APP v01.01.06**.
 
 ## Histórico de versões
 
 | Versão          | Mudanças                                                                                                                                                                                                                                   |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **`v01.01.06`** | **Fluxo 100% Orders API.** Desativa o fallback Checkout Pro/Conta Mercado Pago, remove a opção wallet, pré-registra tentativas antes da chamada ao MP e preserva estados de webhook ao separar IDs `PAY...` de Payment IDs numéricos.      |
 | **`v01.01.05`** | **Webhook Mercado Pago com `ts` em segundos.** Assinaturas reais da dashboard agora validam `x-signature.ts` em segundos ou milissegundos, corrigindo `401` em notificações como `payment.created`.                                        |
 | **`v01.01.04`** | **Webhook Mercado Pago compatível com a dashboard.** Todos os tópicos marcados no painel são aceitos com assinatura válida; testes oficiais com IDs fictícios retornam `200 OK` e ficam auditados sem esconder falhas reais não-404.       |
 | **`v01.01.03`** | **Compliance Orders API ampliado.** Orders agora enviam sobrenome, endereço do pagador, endereço de entrega e `additional_info` antifraude aceito; `/api/preferences` suporta Conta Mercado Pago com `purpose=wallet_purchase`.            |
@@ -30,7 +31,7 @@ Stable bootstrap. Current release: **APP v01.01.05**.
 - Backend Mercado Pago: SDK oficial `mercadopago`, com `nodejs_compat` no Worker para suportar a biblioteca Node.
 - Frontend Mercado Pago: a página `https://www.lcv.dev/sponsor` carrega MercadoPago.js V2 e renderiza Card Payment Brick com Secure Fields.
 - Backend principal: `POST /api/orders` cria uma order em `/v1/orders` com cartão tokenizado, item categorizado e 3DS por risco.
-- Conta Mercado Pago: `POST /api/preferences` permanece disponível para Checkout Pro e aceita `walletOnly=true` para criar preferência `purpose=wallet_purchase`.
+- Fallback Checkout Pro: `POST /api/preferences` permanece bloqueado com `410 Gone`; a integração ativa é somente Checkout Transparente + Orders API.
 - O custom domain `sponsor-motor.lcv.app.br` fica declarado em `wrangler.json` como `custom_domain: true`; o token de deploy precisa manter permissão de gerenciamento de Workers/Custom Domains na zona `lcv.app.br`.
 
 ## Rotas
@@ -39,7 +40,7 @@ Stable bootstrap. Current release: **APP v01.01.05**.
 - `GET /api/config`
 - `GET /api/projects`
 - `POST /api/orders`
-- `POST /api/preferences`
+- `POST /api/preferences` retorna `410 Gone` para impedir mistura com Checkout Pro.
 - `GET /api/status/:externalReference`
 - `POST /api/webhooks/mercadopago`
 

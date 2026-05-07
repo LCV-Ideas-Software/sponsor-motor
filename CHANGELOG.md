@@ -1,5 +1,18 @@
 # Changelog
 
+## [APP v01.01.06] - 2026-05-07
+
+### Changed
+
+- Desativado o fallback Checkout Pro em `POST /api/preferences`, removendo o fluxo de Conta Mercado Pago que gerava `payment.*`/Payment IDs fora da integração principal Checkout Transparente + Orders API.
+- A página pública de sponsor passou a expor somente o Card Payment Brick/Orders API, evitando mistura de produtos na medição de qualidade do Mercado Pago.
+
+### Fixed
+
+- Corrigida corrida em que webhooks `payment.*` podiam chegar antes do fim de `POST /api/orders` e antes da criação da linha local em `sponsor_payments`.
+- `sponsor_payments` agora separa o ID transacional da Orders API (`PAY...`) do resource ID numérico vindo da Payment API em notificações `payment.*`.
+- O upsert final de orders preserva estados terminais já gravados por webhook, e falhas de criação só marcam `order_creation_failed` se a linha ainda estiver em `order_requested`.
+
 ## [APP v01.01.05] - 2026-05-07
 
 ### Fixed

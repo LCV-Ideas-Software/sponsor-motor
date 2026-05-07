@@ -65,6 +65,26 @@ function envWithDb(db: D1Database) {
   };
 }
 
+describe('Mercado Pago Checkout Pro fallback', () => {
+  it('keeps legacy preference creation disabled to avoid mixed Checkout Pro and Orders API flows', async () => {
+    const d1 = createDbMock();
+    const response = await app.fetch(
+      new Request('https://sponsor-motor.lcv.app.br/api/preferences', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ amount: '10', email: 'payer@example.com', walletOnly: true }),
+      }),
+      envWithDb(d1.db),
+    );
+
+    await expect(response.json()).resolves.toEqual({
+      error: 'Checkout Pro preferences are disabled. Use /api/orders.',
+    });
+    expect(response.status).toBe(410);
+    expect(d1.prepare).not.toHaveBeenCalled();
+  });
+});
+
 describe('Mercado Pago webhook', () => {
   beforeEach(() => {
     mercadoPagoMocks.fetchMercadoPagoPayment.mockReset();
@@ -129,6 +149,40 @@ describe('Mercado Pago webhook', () => {
     expect(d1.run).not.toHaveBeenCalled();
   });
 
+  it('stores numeric Payment API resource IDs separately from Orders PAY IDs', async () => {
+    mercadoPagoMocks.fetchMercadoPagoPayment.mockResolvedValueOnce({
+      id: 157346200401,
+      external_reference: 'sp_lcv-ideas-software_00000000-0000-4000-8000-000000000001',
+      status: 'in_process',
+      status_detail: 'pending_review_manual',
+      transaction_amount: 6,
+      currency_id: 'BRL',
+    });
+    const d1 = createDbMock();
+    const request = await signedWebhookRequest({
+      action: 'payment.created',
+      data: { id: '157346200401' },
+      type: 'payment',
+    });
+
+    const response = await app.fetch(request, envWithDb(d1.db));
+
+    await expect(response.json()).resolves.toEqual({ ok: true });
+    expect(response.status).toBe(200);
+    expect(d1.bind).toHaveBeenCalledWith(
+      null,
+      null,
+      '157346200401',
+      null,
+      'in_process',
+      'pending_review_manual',
+      600,
+      'BRL',
+      expect.any(Number),
+      'sp_lcv-ideas-software_00000000-0000-4000-8000-000000000001',
+    );
+  });
+
   it('updates status directly from rich order webhook payloads without fetching the fake dashboard order id', async () => {
     const d1 = createDbMock();
     const request = await signedWebhookRequest(
@@ -172,6 +226,7 @@ describe('Mercado Pago webhook', () => {
     expect(d1.bind).toHaveBeenCalledWith(
       '123457',
       'PAY01K7S9596QBWZRTY02NF',
+      null,
       null,
       'processed',
       'accredited',

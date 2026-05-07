@@ -1,5 +1,12 @@
 # Changelog
 
+## [APP v01.01.01] - 2026-05-07
+
+### Fixed
+
+- Atualizado `mercadopago-public-key` no Cloudflare Secrets Store a partir de `Secrets/variaveis_secretas.txt`, alinhando a Public Key usada pelo MercadoPago.js V2 ao Access Token atual.
+- Melhorado o diagnóstico seguro de falhas da SDK Mercado Pago para preservar status/cause sem registrar dados sensíveis.
+
 ## [APP v01.01.00] - 2026-05-07
 
 ### Changed

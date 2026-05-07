@@ -111,14 +111,40 @@ function mercadoPagoClient(accessToken: string): MercadoPagoConfig {
 }
 
 function sdkErrorMessage(error: unknown, fallback: string): string {
-  if (error instanceof Error && error.message) return error.message;
+  const details: string[] = [];
+  if (error instanceof Error && error.message) details.push(error.message);
   if (error && typeof error === 'object') {
-    const response = error as { message?: unknown; error?: unknown; cause?: unknown };
-    if (typeof response.message === 'string' && response.message) return response.message;
-    if (typeof response.error === 'string' && response.error) return response.error;
-    if (typeof response.cause === 'string' && response.cause) return response.cause;
+    const response = error as {
+      message?: unknown;
+      error?: unknown;
+      status?: unknown;
+      statusCode?: unknown;
+      cause?: unknown;
+    };
+    if (typeof response.status === 'number') details.push(`status=${response.status}`);
+    if (typeof response.statusCode === 'number') details.push(`status=${response.statusCode}`);
+    if (typeof response.message === 'string' && response.message) details.push(response.message);
+    if (typeof response.error === 'string' && response.error) details.push(response.error);
+    if (typeof response.cause === 'string' && response.cause) {
+      details.push(response.cause);
+    } else if (Array.isArray(response.cause)) {
+      for (const cause of response.cause) {
+        if (!cause || typeof cause !== 'object') continue;
+        const item = cause as { code?: unknown; description?: unknown; message?: unknown };
+        const code = typeof item.code === 'string' ? item.code : undefined;
+        const description =
+          typeof item.description === 'string'
+            ? item.description
+            : typeof item.message === 'string'
+              ? item.message
+              : undefined;
+        if (code || description) details.push([code, description].filter(Boolean).join(': '));
+      }
+    }
   }
-  return fallback;
+  const uniqueDetails = [...new Set(details.map((detail) => detail.trim()).filter(Boolean))];
+  if (!uniqueDetails.length) return fallback;
+  return `${fallback}: ${uniqueDetails.join(' | ')}`;
 }
 
 function amountStringFromCents(cents: number): string {

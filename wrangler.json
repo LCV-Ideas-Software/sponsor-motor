@@ -1,0 +1,56 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "sponsor-motor",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-05-07",
+  "workers_dev": false,
+  "routes": [
+    {
+      "pattern": "sponsor-motor.lcv.app.br",
+      "custom_domain": true
+    }
+  ],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+    "logs": {
+      "enabled": true,
+      "invocation_logs": true,
+      "head_sampling_rate": 1
+    },
+    "traces": {
+      "enabled": true
+    }
+  },
+  "vars": {
+    "ENVIRONMENT": "production",
+    "SPONSOR_PUBLIC_BASE_URL": "https://www.lcv.dev",
+    "SPONSOR_API_BASE_URL": "https://sponsor-motor.lcv.app.br"
+  },
+  "d1_databases": [
+    {
+      "binding": "BIGDATA_DB",
+      "database_name": "bigdata_db",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations",
+      "migrations_table": "sponsor_motor_migrations"
+    }
+  ],
+  "secrets_store_secrets": [
+    {
+      "binding": "MERCADOPAGO_ACCESS_TOKEN",
+      "store_id": "df90c0935ba1460899c3c2c457548a90",
+      "secret_name": "mp-access-token"
+    },
+    {
+      "binding": "MERCADOPAGO_WEBHOOK_SECRET",
+      "store_id": "df90c0935ba1460899c3c2c457548a90",
+      "secret_name": "mercadopago-webhook-secret"
+    },
+    {
+      "binding": "MERCADOPAGO_PUBLIC_KEY",
+      "store_id": "df90c0935ba1460899c3c2c457548a90",
+      "secret_name": "mercadopago-public-key"
+    }
+  ]
+}

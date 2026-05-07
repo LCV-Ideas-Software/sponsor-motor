@@ -1,0 +1,51 @@
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "daily"
+      time: "03:00"
+      timezone: "America/Sao_Paulo"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    open-pull-requests-limit: 10
+
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "daily"
+      time: "03:00"
+      timezone: "America/Sao_Paulo"
+    labels:
+      - "dependencies"
+      - "npm"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    versioning-strategy: increase
+    groups:
+      worker-tooling:
+        patterns:
+          - "@biomejs/biome"
+          - "@cloudflare/workers-types"
+          - "prettier"
+          - "typescript"
+          - "vitest"
+          - "wrangler"
+        update-types:
+          - "major"
+          - "minor"
+          - "patch"
+      runtime:
+        patterns:
+          - "hono"
+          - "zod"
+        update-types:
+          - "major"
+          - "minor"
+          - "patch"
+    open-pull-requests-limit: 10

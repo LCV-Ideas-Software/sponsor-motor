@@ -1,0 +1,44 @@
+{
+  "name": "sponsor-motor",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Cloudflare Worker for LCV Ideas & Software sponsor payments via Mercado Pago Checkout Pro.",
+  "license": "AGPL-3.0-or-later",
+  "author": "LCV Ideas & Software",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LCV-Ideas-Software/sponsor-motor.git"
+  },
+  "homepage": "https://www.lcv.dev/sponsor",
+  "bugs": {
+    "url": "https://github.com/LCV-Ideas-Software/sponsor-motor/issues"
+  },
+  "scripts": {
+    "format": "biome format --write src && prettier --write \"**/index.html\" \"*.md\" \".github/**/*.yml\" \"*.json\"",
+    "format:check": "biome check src && prettier --check \"**/index.html\" \"*.md\" \".github/**/*.yml\" \"*.json\"",
+    "format:public": "prettier --write \"**/index.html\"",
+    "format:public:check": "prettier --check \"**/index.html\"",
+    "lint": "biome lint src",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm test",
+    "deploy": "wrangler deploy",
+    "db:migrate:remote": "wrangler d1 migrations apply bigdata_db --remote"
+  },
+  "dependencies": {
+    "hono": "^4.12.18",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.14",
+    "@cloudflare/workers-types": "^4.20260506.1",
+    "prettier": "^3.8.3",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.5",
+    "wrangler": "^4.88.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

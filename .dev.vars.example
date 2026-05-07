@@ -1,0 +1,6 @@
+MERCADOPAGO_ACCESS_TOKEN="set-via-cloudflare-secrets-store"
+MERCADOPAGO_WEBHOOK_SECRET="set-via-cloudflare-secrets-store"
+MERCADOPAGO_PUBLIC_KEY="set-via-cloudflare-secrets-store"
+ENVIRONMENT="development"
+SPONSOR_PUBLIC_BASE_URL="http://localhost:8787"
+SPONSOR_API_BASE_URL="http://localhost:8787"

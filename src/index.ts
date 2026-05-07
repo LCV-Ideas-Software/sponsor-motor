@@ -8,6 +8,8 @@ import {
   createMercadoPagoPreference,
   fetchMercadoPagoOrder,
   fetchMercadoPagoPayment,
+  isMercadoPagoLookupNotFound,
+  type MercadoPagoOrderResponse,
 } from './lib/mercadopago.ts';
 import { amountFromCents, centsFromAmount, nowMs } from './lib/money.ts';
 import { getAllowedOrigin } from './lib/origins.ts';
@@ -19,6 +21,7 @@ import {
   insertOrderPayment,
   insertPreference,
   updatePaymentStatus,
+  updatePaymentStatusByProviderIds,
 } from './lib/storage.ts';
 import { verifyMercadoPagoWebhookSignature } from './lib/webhook-signature.ts';
 
@@ -240,27 +243,174 @@ app.get('/api/status/:externalReference', async (c) => {
 interface MercadoPagoWebhookPayload {
   type?: string;
   action?: string;
-  data?: { id?: string | number };
+  topic?: string;
+  resource?: string;
+  data?: ({ id?: string | number } & Partial<MercadoPagoOrderResponse> & Record<string, unknown>) | undefined;
   id?: string | number;
+  version?: number;
+}
+
+type MercadoPagoWebhookTopic =
+  | 'orders'
+  | 'payment'
+  | 'fraud_alert'
+  | 'claim'
+  | 'chargeback'
+  | 'card_updater'
+  | 'merchant_order'
+  | 'subscription'
+  | 'mp_connect'
+  | 'wallet_connect'
+  | 'point_integration'
+  | 'shipment'
+  | 'delivery'
+  | 'self_service'
+  | 'generic';
+
+function stringFromUnknown(value: unknown): string | undefined {
+  if (typeof value === 'string' && value.trim()) return value.trim();
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  return undefined;
+}
+
+function webhookTokens(payload: MercadoPagoWebhookPayload, queryType: string | undefined): Set<string> {
+  const candidates = [payload.type, payload.topic, queryType, payload.action?.split('.')[0], payload.resource];
+  return new Set(candidates.flatMap((candidate) => (candidate ? [candidate.trim().toLowerCase()] : [])));
+}
+
+function classifyWebhookTopic(
+  payload: MercadoPagoWebhookPayload,
+  queryType: string | undefined,
+): MercadoPagoWebhookTopic {
+  const tokens = webhookTokens(payload, queryType);
+  if (tokens.has('order') || tokens.has('orders')) return 'orders';
+  if (tokens.has('payment') || tokens.has('payments')) return 'payment';
+  if (tokens.has('stop_delivery_op_wh') || tokens.has('delivery_cancellation')) return 'fraud_alert';
+  if (tokens.has('automatic-payments') || tokens.has('topic_card_id_wh') || payload.action === 'card.updated') {
+    return 'card_updater';
+  }
+  if (tokens.has('topic_claims_integration_wh') || tokens.has('claim') || tokens.has('claims')) return 'claim';
+  if (tokens.has('topic_chargebacks_wh') || tokens.has('chargeback') || tokens.has('chargebacks')) return 'chargeback';
+  if (tokens.has('topic_merchant_order_wh') || tokens.has('merchant_order') || tokens.has('merchant_orders')) {
+    return 'merchant_order';
+  }
+  if (
+    tokens.has('subscription_authorized_payment') ||
+    tokens.has('subscription_preapproval') ||
+    tokens.has('subscription_preapproval_plan') ||
+    tokens.has('preapproval') ||
+    tokens.has('preapproval_plan')
+  ) {
+    return 'subscription';
+  }
+  if (tokens.has('mp-connect') || tokens.has('mp_connect')) return 'mp_connect';
+  if (tokens.has('wallet_connect') || tokens.has('wallet-connect')) return 'wallet_connect';
+  if (tokens.has('point_integration_wh') || tokens.has('point_integration_ipn')) return 'point_integration';
+  if (tokens.has('shipment') || tokens.has('shipments') || tokens.has('topic_shipments_wh')) return 'shipment';
+  if (tokens.has('delivery') || tokens.has('delivery_proximity') || tokens.has('proximity_marketplace'))
+    return 'delivery';
+  if (tokens.has('self_service') || tokens.has('self-service') || tokens.has('self_service_wh')) return 'self_service';
+  return 'generic';
+}
+
+function webhookProviderId(payload: MercadoPagoWebhookPayload, queryDataId: string | undefined): string {
+  const data = payload.data || {};
+  return (
+    queryDataId ||
+    stringFromUnknown(data.id) ||
+    stringFromUnknown(data.payment_id) ||
+    stringFromUnknown(data.merchant_order) ||
+    stringFromUnknown(data.merchant_order_id) ||
+    stringFromUnknown(data.order_id) ||
+    stringFromUnknown(data.customer_id) ||
+    stringFromUnknown(payload.id) ||
+    ''
+  );
+}
+
+function webhookStatus(topic: MercadoPagoWebhookTopic, payload: MercadoPagoWebhookPayload): string | undefined {
+  const data = payload.data || {};
+  return (
+    stringFromUnknown(data.status) ||
+    stringFromUnknown(data.status_detail) ||
+    (topic === 'fraud_alert' ? 'fraud_alert' : undefined) ||
+    (topic === 'chargeback' ? 'chargeback' : undefined) ||
+    (topic === 'claim' ? 'claim' : undefined) ||
+    (topic === 'card_updater' ? 'card_updated' : undefined) ||
+    (topic === 'mp_connect' ? 'mp_connect' : undefined) ||
+    (topic === 'wallet_connect' ? 'wallet_connect' : undefined) ||
+    (topic === 'point_integration' ? 'point_integration' : undefined) ||
+    (topic === 'shipment' ? 'shipment' : undefined) ||
+    (topic === 'delivery' ? 'delivery' : undefined) ||
+    (topic === 'self_service' ? 'self_service' : undefined)
+  );
+}
+
+function providerPaymentId(payload: MercadoPagoWebhookPayload): string | undefined {
+  const data = payload.data || {};
+  return stringFromUnknown(data.payment_id) || stringFromUnknown(data.paymentId) || stringFromUnknown(data.payment);
+}
+
+function providerMerchantOrderId(
+  payload: MercadoPagoWebhookPayload,
+  topic: MercadoPagoWebhookTopic,
+): string | undefined {
+  const data = payload.data || {};
+  return (
+    stringFromUnknown(data.merchant_order) ||
+    stringFromUnknown(data.merchant_order_id) ||
+    (topic === 'merchant_order' ? stringFromUnknown(data.id) : undefined)
+  );
+}
+
+function providerOrderId(payload: MercadoPagoWebhookPayload, topic: MercadoPagoWebhookTopic): string | undefined {
+  const data = payload.data || {};
+  return stringFromUnknown(data.order_id) || (topic === 'orders' ? stringFromUnknown(data.id) : undefined);
+}
+
+function orderFromWebhookPayload(payload: MercadoPagoWebhookPayload): MercadoPagoOrderResponse | undefined {
+  if (!payload.data || typeof payload.data !== 'object') return undefined;
+  const data = payload.data;
+  const hasOrderFields =
+    typeof data.external_reference === 'string' ||
+    typeof data.status === 'string' ||
+    typeof data.status_detail === 'string' ||
+    typeof data.transactions === 'object';
+  if (!hasOrderFields) return undefined;
+  const id = stringFromUnknown(data.id);
+  return {
+    ...data,
+    ...(id ? { id } : {}),
+  };
 }
 
 app.post('/api/webhooks/mercadopago', async (c) => {
   const rawBody = await c.req.text();
   const payload = JSON.parse(rawBody || '{}') as MercadoPagoWebhookPayload;
   const queryDataId = c.req.query('data.id') || c.req.query('id');
-  const dataId = String(payload.data?.id || payload.id || queryDataId || '');
+  const queryType = c.req.query('type') || c.req.query('topic');
+  const topic = classifyWebhookTopic(payload, queryType);
+  const dataId = webhookProviderId(payload, queryDataId);
   const requestId = c.req.header('x-request-id') || '';
   const signature = c.req.header('x-signature');
   const resolved = await resolveEnv(c.env);
-  const eventType = payload.type || payload.action || 'unknown';
-  const signatureDataId = eventType.includes('order') ? dataId.toLowerCase() : dataId;
+  const eventType = payload.action || payload.type || 'unknown';
+  const signatureDataId = queryDataId ? queryDataId.toLowerCase() : undefined;
 
-  const verified = await verifyMercadoPagoWebhookSignature({
+  let verified = await verifyMercadoPagoWebhookSignature({
     secret: resolved.MERCADOPAGO_WEBHOOK_SECRET,
     dataId: signatureDataId,
     requestId,
     xSignature: signature,
   });
+  if (!verified && !queryDataId && dataId) {
+    verified = await verifyMercadoPagoWebhookSignature({
+      secret: resolved.MERCADOPAGO_WEBHOOK_SECRET,
+      dataId: dataId.toLowerCase(),
+      requestId,
+      xSignature: signature,
+    });
+  }
   if (!verified) return c.json({ error: 'Invalid signature.' }, 401);
 
   const receivedAt = nowMs();
@@ -268,28 +418,42 @@ app.post('/api/webhooks/mercadopago', async (c) => {
   let externalReference: string | undefined;
   let status: string | undefined;
 
-  if (dataId && eventType.includes('order')) {
-    const order = await fetchMercadoPagoOrder(resolved.MERCADOPAGO_ACCESS_TOKEN, dataId);
-    const payment = order.transactions?.payments?.[0];
-    externalReference = order.external_reference || undefined;
-    status = payment?.status || order.status || undefined;
-    if (externalReference && status) {
+  if (dataId && topic === 'orders') {
+    const order =
+      orderFromWebhookPayload(payload) ||
+      (await fetchMercadoPagoOrder(resolved.MERCADOPAGO_ACCESS_TOKEN, dataId).catch((error: unknown) => {
+        if (!isMercadoPagoLookupNotFound(error)) throw error;
+        console.warn('[sponsor-motor] Mercado Pago webhook order not found.', { eventType, providerId: dataId });
+        status = 'not_found';
+        return undefined;
+      }));
+    const payment = order?.transactions?.payments?.[0];
+    externalReference = order?.external_reference || undefined;
+    status = payment?.status || order?.status || status;
+    if (order && externalReference && status) {
       await updatePaymentStatus(c.env.BIGDATA_DB, {
         externalReference,
         orderId: order.id || dataId,
         paymentId: payment?.id,
         status,
         statusDetail: payment?.status_detail || order.status_detail,
-        amountCents: centsFromMercadoPagoAmount(payment?.amount || order.total_amount),
+        amountCents: centsFromMercadoPagoAmount(
+          payment?.paid_amount || payment?.amount || order.total_paid_amount || order.total_amount,
+        ),
         currency: order.currency || 'BRL',
         now: receivedAt,
       });
     }
-  } else if (dataId && (eventType.includes('payment') || payload.type === 'payment')) {
-    const payment = await fetchMercadoPagoPayment(resolved.MERCADOPAGO_ACCESS_TOKEN, dataId);
-    externalReference = payment.external_reference || undefined;
-    status = payment.status || undefined;
-    if (externalReference && status) {
+  } else if (dataId && topic === 'payment') {
+    const payment = await fetchMercadoPagoPayment(resolved.MERCADOPAGO_ACCESS_TOKEN, dataId).catch((error: unknown) => {
+      if (!isMercadoPagoLookupNotFound(error)) throw error;
+      console.warn('[sponsor-motor] Mercado Pago webhook payment not found.', { eventType, providerId: dataId });
+      status = 'not_found';
+      return undefined;
+    });
+    externalReference = payment?.external_reference || undefined;
+    status = payment?.status || status;
+    if (payment && externalReference && status) {
       await updatePaymentStatus(c.env.BIGDATA_DB, {
         externalReference,
         paymentId: payment.id ? String(payment.id) : dataId,
@@ -299,6 +463,18 @@ app.post('/api/webhooks/mercadopago', async (c) => {
         amountCents:
           typeof payment.transaction_amount === 'number' ? Math.round(payment.transaction_amount * 100) : undefined,
         currency: payment.currency_id,
+        now: receivedAt,
+      });
+    }
+  } else {
+    status = webhookStatus(topic, payload);
+    if (status) {
+      await updatePaymentStatusByProviderIds(c.env.BIGDATA_DB, {
+        paymentId: providerPaymentId(payload),
+        merchantOrderId: providerMerchantOrderId(payload, topic),
+        orderId: providerOrderId(payload, topic),
+        status,
+        statusDetail: stringFromUnknown(payload.data?.status_detail) || eventType,
         now: receivedAt,
       });
     }

@@ -31,4 +31,20 @@ describe('verifyMercadoPagoWebhookSignature', () => {
       }),
     ).resolves.toBe(false);
   });
+
+  it('accepts Mercado Pago signatures without data.id when the notification has no resource id', async () => {
+    const secret = 'secret';
+    const ts = String(Date.now());
+    const requestId = 'req-automatic-payments';
+    const v1 = await hmacSha256Hex(secret, webhookManifest(undefined, requestId, ts));
+
+    await expect(
+      verifyMercadoPagoWebhookSignature({
+        secret,
+        requestId,
+        xSignature: `ts=${ts},v1=${v1}`,
+        nowMs: Number(ts),
+      }),
+    ).resolves.toBe(true);
+  });
 });

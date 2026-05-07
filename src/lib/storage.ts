@@ -114,6 +114,42 @@ export async function updatePaymentStatus(
     .run();
 }
 
+export async function updatePaymentStatusByProviderIds(
+  db: D1Database,
+  args: {
+    paymentId?: string | undefined;
+    merchantOrderId?: string | undefined;
+    orderId?: string | undefined;
+    status: string;
+    statusDetail?: string | undefined;
+    now: number;
+  },
+): Promise<void> {
+  if (!args.paymentId && !args.merchantOrderId && !args.orderId) return;
+  await db
+    .prepare(
+      `UPDATE sponsor_payments
+       SET status = ?,
+           status_detail = COALESCE(?, status_detail),
+           updated_at = ?
+       WHERE (? IS NOT NULL AND payment_id = ?)
+          OR (? IS NOT NULL AND merchant_order_id = ?)
+          OR (? IS NOT NULL AND sponsor_order_id = ?)`,
+    )
+    .bind(
+      args.status,
+      args.statusDetail || null,
+      args.now,
+      args.paymentId || null,
+      args.paymentId || null,
+      args.merchantOrderId || null,
+      args.merchantOrderId || null,
+      args.orderId || null,
+      args.orderId || null,
+    )
+    .run();
+}
+
 export async function insertEvent(
   db: D1Database,
   args: {

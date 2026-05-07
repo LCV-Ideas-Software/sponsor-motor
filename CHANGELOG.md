@@ -1,5 +1,14 @@
 # Changelog
 
+## [APP v01.01.04] - 2026-05-07
+
+### Fixed
+
+- Corrigido o webhook Mercado Pago para confirmar com `200 OK` as simulações assinadas da dashboard quando o `payment.updated` usa um ID fictício inexistente.
+- Eventos de webhook com lookup `404/not_found` agora são auditados em `sponsor_payment_events` com status `not_found`, sem mascarar erros reais não-404 do Mercado Pago.
+- Implementada cobertura explícita para todos os tópicos habilitados no painel Mercado Pago: Pagamentos, Orders, Alertas de fraude, Card Updater, Vinculação de aplicações, Reclamações, Contestações, Envios, Planos e assinaturas, Delivery, Pedidos comerciais, Integrações Point, Wallet Connect e Self Service.
+- Ajustada a validação HMAC para seguir a regra oficial de remover `id:` do manifesto quando `data.id` não vier na URL, evitando falha em notificações como `automatic-payments/card.updated`.
+
 ## [APP v01.01.03] - 2026-05-07
 
 ### Changed

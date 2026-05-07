@@ -17,20 +17,21 @@ export function parseXSignature(header: string | null | undefined): WebhookSigna
   return { ts: parts.ts, v1: parts.v1 };
 }
 
-export function webhookManifest(dataId: string, requestId: string, timestamp: string): string {
-  return `id:${dataId};request-id:${requestId};ts:${timestamp};`;
+export function webhookManifest(dataId: string | undefined, requestId: string, timestamp: string): string {
+  const idSegment = dataId ? `id:${dataId};` : '';
+  return `${idSegment}request-id:${requestId};ts:${timestamp};`;
 }
 
 export async function verifyMercadoPagoWebhookSignature(args: {
   secret: string;
-  dataId: string;
+  dataId?: string | undefined;
   requestId: string;
   xSignature: string | null | undefined;
   maxAgeMs?: number;
   nowMs?: number;
 }): Promise<boolean> {
   const parts = parseXSignature(args.xSignature);
-  if (!parts || !args.requestId || !args.dataId) return false;
+  if (!parts || !args.requestId) return false;
 
   const timestamp = Number(parts.ts);
   if (!Number.isFinite(timestamp)) return false;

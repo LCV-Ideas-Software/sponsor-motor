@@ -25,10 +25,10 @@ interface MercadoPagoPreferenceResponse {
   sandbox_init_point?: string;
 }
 
-interface MercadoPagoOrderPayment {
+export interface MercadoPagoOrderPayment {
   id?: string;
-  amount?: string;
-  paid_amount?: string;
+  amount?: string | number;
+  paid_amount?: string | number;
   reference_id?: string;
   status?: string;
   status_detail?: string;
@@ -46,14 +46,16 @@ interface MercadoPagoOrderPayment {
   };
 }
 
-interface MercadoPagoOrderResponse {
+export interface MercadoPagoOrderResponse {
   id?: string;
   status?: string;
   status_detail?: string;
   external_reference?: string;
-  total_amount?: string;
-  total_paid_amount?: string;
+  total_amount?: string | number;
+  total_paid_amount?: string | number;
   currency?: string;
+  type?: string;
+  version?: number;
   transactions?: {
     payments?: MercadoPagoOrderPayment[];
   };
@@ -160,6 +162,40 @@ function sdkErrorMessage(error: unknown, fallback: string): string {
   const uniqueDetails = [...new Set(details.map((detail) => detail.trim()).filter(Boolean))];
   if (!uniqueDetails.length) return fallback;
   return `${fallback}: ${uniqueDetails.join(' | ')}`;
+}
+
+function sdkErrorStatus(error: unknown): number | undefined {
+  if (!error || typeof error !== 'object') return undefined;
+  const response = error as {
+    status?: unknown;
+    statusCode?: unknown;
+    response?: { status?: unknown; statusCode?: unknown };
+  };
+  if (typeof response.status === 'number') return response.status;
+  if (typeof response.statusCode === 'number') return response.statusCode;
+  if (typeof response.response?.status === 'number') return response.response.status;
+  if (typeof response.response?.statusCode === 'number') return response.response.statusCode;
+  return undefined;
+}
+
+function isNotFoundMessage(message: string): boolean {
+  return /\b(status=404|not_found|not found)\b/i.test(message);
+}
+
+export class MercadoPagoLookupError extends Error {
+  readonly status: number | undefined;
+
+  constructor(message: string, options?: { status?: number | undefined }) {
+    super(message);
+    this.name = 'MercadoPagoLookupError';
+    this.status = options?.status;
+  }
+}
+
+export function isMercadoPagoLookupNotFound(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  if (error instanceof MercadoPagoLookupError) return error.status === 404 || isNotFoundMessage(error.message);
+  return isNotFoundMessage(error.message);
 }
 
 function mercadoPagoApiErrorMessage(status: number, payload: unknown, fallback: string): string {
@@ -393,7 +429,9 @@ export async function fetchMercadoPagoPayment(
   try {
     return await new Payment(mercadoPagoClient(accessToken)).get({ id: paymentId });
   } catch (error) {
-    throw new Error(sdkErrorMessage(error, 'Mercado Pago payment lookup failed.'));
+    throw new MercadoPagoLookupError(sdkErrorMessage(error, 'Mercado Pago payment lookup failed.'), {
+      status: sdkErrorStatus(error),
+    });
   }
 }
 
@@ -401,6 +439,8 @@ export async function fetchMercadoPagoOrder(accessToken: string, orderId: string
   try {
     return await new Order(mercadoPagoClient(accessToken)).get({ id: orderId });
   } catch (error) {
-    throw new Error(sdkErrorMessage(error, 'Mercado Pago order lookup failed.'));
+    throw new MercadoPagoLookupError(sdkErrorMessage(error, 'Mercado Pago order lookup failed.'), {
+      status: sdkErrorStatus(error),
+    });
   }
 }

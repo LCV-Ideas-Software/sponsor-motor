@@ -4,12 +4,13 @@ Cloudflare Worker dedicado para processar apoios/doações via Mercado Pago Chec
 
 ## Status
 
-Stable bootstrap. Current release: **APP v01.01.03**.
+Stable bootstrap. Current release: **APP v01.01.04**.
 
 ## Histórico de versões
 
 | Versão          | Mudanças                                                                                                                                                                                                                                   |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **`v01.01.04`** | **Webhook Mercado Pago compatível com a dashboard.** Todos os tópicos marcados no painel são aceitos com assinatura válida; testes oficiais com IDs fictícios retornam `200 OK` e ficam auditados sem esconder falhas reais não-404.       |
 | **`v01.01.03`** | **Compliance Orders API ampliado.** Orders agora enviam sobrenome, endereço do pagador, endereço de entrega e `additional_info` antifraude aceito; `/api/preferences` suporta Conta Mercado Pago com `purpose=wallet_purchase`.            |
 | **`v01.01.02`** | **Payload Orders API corrigido.** Remove `additional_info` não aceito pela Orders API, cria orders por REST controlado e evita converter recusas com `data.id` em erro 500.                                                                |
 | **`v01.01.01`** | **Alinhamento de credenciais Mercado Pago.** Public Key do Secrets Store foi atualizada a partir de `Secrets/variaveis_secretas.txt` para casar com o Access Token atual, e erros da SDK passaram a preservar causa segura.                |
@@ -40,6 +41,25 @@ Stable bootstrap. Current release: **APP v01.01.03**.
 - `POST /api/preferences`
 - `GET /api/status/:externalReference`
 - `POST /api/webhooks/mercadopago`
+
+## Webhooks Mercado Pago
+
+O endpoint `POST /api/webhooks/mercadopago` valida `x-signature`/`x-request-id`, registra todos os eventos em `sponsor_payment_events` e processa de forma específica os tópicos habilitados no painel Mercado Pago:
+
+- Pagamentos: `payment`
+- Order (Mercado Pago): `order`, `orders`
+- Alertas de fraude: `stop_delivery_op_wh`, `delivery_cancellation`
+- Card Updater: `topic_card_id_wh`, `automatic-payments`
+- Vinculação de aplicações: `mp-connect`
+- Reclamações: `topic_claims_integration_wh`, `claim`
+- Contestações: `topic_chargebacks_wh`, `chargeback`
+- Envios: `shipment`, `shipments`
+- Planos e assinaturas: `subscription_authorized_payment`, `subscription_preapproval`, `subscription_preapproval_plan`
+- Delivery: `delivery`
+- Pedidos comerciais: `topic_merchant_order_wh`, `merchant_order`
+- Integrações Point: `point_integration_wh`
+- Wallet Connect: `wallet_connect`
+- Self Service: `self_service`
 
 ## Desenvolvimento
 

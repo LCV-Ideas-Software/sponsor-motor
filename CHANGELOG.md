@@ -1,5 +1,13 @@
 # Changelog
 
+## [APP v01.01.02] - 2026-05-07
+
+### Fixed
+
+- Removido `additional_info` do payload de criação de Orders, campo não aceito pela Orders API para os metadados customizados enviados.
+- Trocada a criação de Orders para chamada REST controlada em `/v1/orders`, preservando o corpo de erro seguro do Mercado Pago em logs.
+- Respostas não-2xx da Orders API que já retornam `data.id` agora são tratadas como order válida, permitindo exibir recusas de pagamento sem converter em erro 500.
+
 ## [APP v01.01.01] - 2026-05-07
 
 ### Fixed

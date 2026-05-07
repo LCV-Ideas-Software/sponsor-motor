@@ -4,18 +4,20 @@ import { timing } from 'hono/timing';
 import { APP_VERSION, type Env, type ResolvedEnv, resolveSecret } from './env.ts';
 import { optionalHash, sha256Hex } from './lib/crypto.ts';
 import {
+  cancelMercadoPagoOrder,
   createMercadoPagoOrder,
   fetchMercadoPagoOrder,
   fetchMercadoPagoPayment,
   isMercadoPagoLookupNotFound,
   type MercadoPagoOrderResponse,
   type MercadoPagoPhone,
+  refundMercadoPagoOrder,
   type ThreeDsValidation,
 } from './lib/mercadopago.ts';
 import { amountFromCents, centsFromAmount, nowMs } from './lib/money.ts';
 import { getAllowedOrigin } from './lib/origins.ts';
 import { normalizeProjectSlug, PROJECT_BY_SLUG, SPONSOR_PROJECTS } from './lib/projects.ts';
-import { CreateOrderSchema } from './lib/schemas.ts';
+import { CreateOrderSchema, RefundOrderSchema } from './lib/schemas.ts';
 import {
   findPaymentStatus,
   insertEvent,
@@ -32,6 +34,7 @@ async function resolveEnv(env: Env): Promise<ResolvedEnv> {
   const accessToken = await resolveSecret(env.MERCADOPAGO_ACCESS_TOKEN);
   const webhookSecret = await resolveSecret(env.MERCADOPAGO_WEBHOOK_SECRET);
   const publicKey = await resolveSecret(env.MERCADOPAGO_PUBLIC_KEY);
+  const operatorToken = await resolveSecret(env.SPONSOR_OPERATOR_TOKEN);
   if (!accessToken) throw new Error('MERCADOPAGO_ACCESS_TOKEN missing.');
   if (!webhookSecret) throw new Error('MERCADOPAGO_WEBHOOK_SECRET missing.');
   return {
@@ -39,7 +42,50 @@ async function resolveEnv(env: Env): Promise<ResolvedEnv> {
     MERCADOPAGO_ACCESS_TOKEN: accessToken,
     MERCADOPAGO_WEBHOOK_SECRET: webhookSecret,
     MERCADOPAGO_PUBLIC_KEY: publicKey,
+    SPONSOR_OPERATOR_TOKEN: operatorToken,
   };
+}
+
+// v01.02.00: timing-safe equality used by the operator-only refund +
+// cancel routes. We compare equal-length strings byte-by-byte without
+// short-circuiting so that the token check time does not leak token
+// length or prefix to a remote attacker. Differing-length inputs are
+// still rejected (timing on length is acceptable; the secret length
+// is configuration, not user input).
+function timingSafeEqualStrings(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return mismatch === 0;
+}
+
+// v01.02.00: bearer-token auth gate for operator-only admin endpoints.
+// Returns the resolved token when the request carries a matching
+// `Authorization: Bearer <token>` header AND the worker has
+// `SPONSOR_OPERATOR_TOKEN` configured. Returns `null` and sets the
+// 401/403 response when the gate refuses.
+function authorizeOperator(
+  authorizationHeader: string | undefined,
+  configuredToken: string | undefined,
+): { ok: true } | { ok: false; status: 401 | 403; error: string } {
+  if (!configuredToken || configuredToken.trim().length === 0) {
+    // The Worker has not been configured with an operator token, so
+    // the admin endpoints are intentionally disabled rather than
+    // accidentally open. Operators ship a token via wrangler secrets
+    // (or the secret store binding) before exercising refund/cancel.
+    return { ok: false, status: 403, error: 'Operator endpoint disabled (SPONSOR_OPERATOR_TOKEN not configured).' };
+  }
+  if (!authorizationHeader) return { ok: false, status: 401, error: 'Missing Authorization header.' };
+  const match = /^Bearer\s+(.+)$/i.exec(authorizationHeader);
+  if (!match) return { ok: false, status: 401, error: 'Authorization must be Bearer scheme.' };
+  const provided = match[1]?.trim() ?? '';
+  if (!provided) return { ok: false, status: 401, error: 'Empty Bearer token.' };
+  if (!timingSafeEqualStrings(provided, configuredToken)) {
+    return { ok: false, status: 401, error: 'Invalid operator token.' };
+  }
+  return { ok: true };
 }
 
 function publicBaseUrl(env: Env): string {
@@ -100,7 +146,7 @@ function isTerminalPaymentStatus(status: string | null | undefined): boolean {
 }
 
 async function refreshStatusFromMercadoPagoOrder(env: ResolvedEnv, db: D1Database, orderId: string): Promise<void> {
-  const order = await fetchMercadoPagoOrder(env.MERCADOPAGO_ACCESS_TOKEN, orderId);
+  const order = await fetchMercadoPagoOrder(env.MERCADOPAGO_ACCESS_TOKEN, orderId, env.MERCADOPAGO_INTEGRATOR_ID);
   const externalReference = order.external_reference;
   const payment = order.transactions?.payments?.[0];
   const status = payment?.status || order.status;
@@ -195,6 +241,14 @@ app.post('/api/orders', async (c) => {
     now: timestamp,
   });
 
+  // v01.02.00: forward last_purchase only when the caller actually
+  // sent a parseable timestamp; the schema accepts empty string as
+  // "absent", and we collapse both cases to undefined so the SDK
+  // payload omits the additional_info field rather than sending an
+  // empty value (which would degrade fraud analysis quality).
+  const lastPurchaseRaw = typeof parsed.data.payerLastPurchase === 'string' ? parsed.data.payerLastPurchase.trim() : '';
+  const payerLastPurchase = lastPurchaseRaw ? new Date(lastPurchaseRaw).toISOString() : undefined;
+
   const order = await createMercadoPagoOrder({
     accessToken: resolved.MERCADOPAGO_ACCESS_TOKEN,
     projectSlug,
@@ -212,7 +266,9 @@ app.post('/api/orders', async (c) => {
     payerAddress: address,
     payerRegistrationDate: new Date(parsed.data.payerRegistrationDate).toISOString(),
     firstPurchaseOnline: parsed.data.firstPurchaseOnline,
+    payerLastPurchase,
     threeDsValidation: threeDsMode,
+    integratorId: c.env.MERCADOPAGO_INTEGRATOR_ID,
   }).catch(async (error: unknown) => {
     await markOrderCreationFailed(c.env.BIGDATA_DB, externalReference, nowMs());
     throw error;
@@ -277,6 +333,114 @@ app.get('/api/status/:externalReference', async (c) => {
     }
   }
   return c.json(status);
+});
+
+// v01.02.00: integration quality recommendation —
+// "Cancelamento do pedido via API". Operator-only; gated by bearer
+// token. Cancels an MP order that has not yet been captured. After
+// MP captures the auth, the cancel API rejects and the operator must
+// hit the refund route instead.
+app.post('/api/orders/:orderId/cancel', async (c) => {
+  const orderId = c.req.param('orderId');
+  if (!/^[0-9a-zA-Z-]{8,64}$/.test(orderId)) return c.json({ error: 'Order ID inválido.' }, 400);
+  const resolved = await resolveEnv(c.env);
+  const auth = authorizeOperator(c.req.header('authorization'), resolved.SPONSOR_OPERATOR_TOKEN);
+  if (!auth.ok) return c.json({ error: auth.error }, auth.status);
+  let cancelled: MercadoPagoOrderResponse;
+  try {
+    cancelled = await cancelMercadoPagoOrder(
+      resolved.MERCADOPAGO_ACCESS_TOKEN,
+      orderId,
+      c.env.MERCADOPAGO_INTEGRATOR_ID,
+    );
+  } catch (error) {
+    if (isMercadoPagoLookupNotFound(error)) return c.json({ error: 'Pedido não encontrado no Mercado Pago.' }, 404);
+    const message = error instanceof Error ? error.message : 'Erro desconhecido.';
+    console.warn('[sponsor-motor] order_cancel_failed', { orderId, error: message });
+    return c.json({ error: message }, 502);
+  }
+  // Reflect the cancellation in our local status table when the
+  // external_reference matches a row we own. The webhook will also
+  // reconcile asynchronously, but the explicit update keeps the
+  // /api/status response consistent on the next read.
+  if (cancelled.external_reference) {
+    await updatePaymentStatusByProviderIds(c.env.BIGDATA_DB, {
+      orderId: cancelled.id || orderId,
+      paymentId: cancelled.transactions?.payments?.[0]?.id,
+      status: cancelled.status || 'cancelled',
+      statusDetail: cancelled.status_detail || 'cancelled_by_operator',
+      now: nowMs(),
+    });
+  }
+  logInfo('order_cancelled', { orderId: cancelled.id || orderId, status: cancelled.status });
+  return c.json({
+    orderId: cancelled.id,
+    status: cancelled.status,
+    statusDetail: cancelled.status_detail,
+    externalReference: cancelled.external_reference,
+  });
+});
+
+// v01.02.00: integration quality recommendation — "Reembolsos". Total
+// when the body is omitted; partial when the body carries
+// `transactions: [{ id, amount }, ...]`. Operator-only; gated by
+// bearer token.
+app.post('/api/orders/:orderId/refund', async (c) => {
+  const orderId = c.req.param('orderId');
+  if (!/^[0-9a-zA-Z-]{8,64}$/.test(orderId)) return c.json({ error: 'Order ID inválido.' }, 400);
+  const resolved = await resolveEnv(c.env);
+  const auth = authorizeOperator(c.req.header('authorization'), resolved.SPONSOR_OPERATOR_TOKEN);
+  if (!auth.ok) return c.json({ error: auth.error }, auth.status);
+  // The refund body is optional. Empty body → full refund. Non-empty
+  // body must be valid JSON matching RefundOrderSchema; otherwise 400.
+  // Reading text first (instead of c.req.json().catch()) is required so
+  // unparseable JSON (e.g., `}}}`) cannot collapse silently into
+  // safeParse(undefined) and trigger a full refund — codex R2 catch on
+  // cross-review session 31d7a5dc.
+  const rawText = await c.req.text();
+  let rawBody: unknown;
+  if (rawText.length > 0) {
+    try {
+      rawBody = JSON.parse(rawText);
+    } catch {
+      return c.json({ error: 'Refund body inválido (JSON malformado).' }, 400);
+    }
+  }
+  const parsed = RefundOrderSchema.safeParse(rawBody);
+  if (!parsed.success) return c.json({ error: 'Refund body inválido.' }, 400);
+  let refunded: MercadoPagoOrderResponse;
+  try {
+    refunded = await refundMercadoPagoOrder(resolved.MERCADOPAGO_ACCESS_TOKEN, orderId, {
+      transactions: parsed.data?.transactions,
+      integratorId: c.env.MERCADOPAGO_INTEGRATOR_ID,
+    });
+  } catch (error) {
+    if (isMercadoPagoLookupNotFound(error)) return c.json({ error: 'Pedido não encontrado no Mercado Pago.' }, 404);
+    const message = error instanceof Error ? error.message : 'Erro desconhecido.';
+    console.warn('[sponsor-motor] order_refund_failed', { orderId, error: message });
+    return c.json({ error: message }, 502);
+  }
+  if (refunded.external_reference) {
+    await updatePaymentStatusByProviderIds(c.env.BIGDATA_DB, {
+      orderId: refunded.id || orderId,
+      paymentId: refunded.transactions?.payments?.[0]?.id,
+      status: refunded.status || 'refunded',
+      statusDetail: refunded.status_detail || 'refunded_by_operator',
+      now: nowMs(),
+    });
+  }
+  logInfo('order_refunded', {
+    orderId: refunded.id || orderId,
+    status: refunded.status,
+    partial: !!parsed.data?.transactions?.length,
+  });
+  return c.json({
+    orderId: refunded.id,
+    status: refunded.status,
+    statusDetail: refunded.status_detail,
+    externalReference: refunded.external_reference,
+    partial: !!parsed.data?.transactions?.length,
+  });
 });
 
 interface MercadoPagoWebhookPayload {
@@ -460,12 +624,14 @@ app.post('/api/webhooks/mercadopago', async (c) => {
   if (dataId && topic === 'orders') {
     const order =
       orderFromWebhookPayload(payload) ||
-      (await fetchMercadoPagoOrder(resolved.MERCADOPAGO_ACCESS_TOKEN, dataId).catch((error: unknown) => {
-        if (!isMercadoPagoLookupNotFound(error)) throw error;
-        console.warn('[sponsor-motor] Mercado Pago webhook order not found.', { eventType, providerId: dataId });
-        status = 'not_found';
-        return undefined;
-      }));
+      (await fetchMercadoPagoOrder(resolved.MERCADOPAGO_ACCESS_TOKEN, dataId, c.env.MERCADOPAGO_INTEGRATOR_ID).catch(
+        (error: unknown) => {
+          if (!isMercadoPagoLookupNotFound(error)) throw error;
+          console.warn('[sponsor-motor] Mercado Pago webhook order not found.', { eventType, providerId: dataId });
+          status = 'not_found';
+          return undefined;
+        },
+      ));
     const payment = order?.transactions?.payments?.[0];
     externalReference = order?.external_reference || undefined;
     status = payment?.status || order?.status || status;
@@ -484,7 +650,11 @@ app.post('/api/webhooks/mercadopago', async (c) => {
       });
     }
   } else if (dataId && topic === 'payment') {
-    const payment = await fetchMercadoPagoPayment(resolved.MERCADOPAGO_ACCESS_TOKEN, dataId).catch((error: unknown) => {
+    const payment = await fetchMercadoPagoPayment(
+      resolved.MERCADOPAGO_ACCESS_TOKEN,
+      dataId,
+      c.env.MERCADOPAGO_INTEGRATOR_ID,
+    ).catch((error: unknown) => {
       if (!isMercadoPagoLookupNotFound(error)) throw error;
       console.warn('[sponsor-motor] Mercado Pago webhook payment not found.', { eventType, providerId: dataId });
       status = 'not_found';

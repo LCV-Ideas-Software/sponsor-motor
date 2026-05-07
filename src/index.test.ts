@@ -6,6 +6,8 @@ import { webhookManifest } from './lib/webhook-signature.ts';
 const mercadoPagoMocks = vi.hoisted(() => ({
   fetchMercadoPagoPayment: vi.fn(),
   fetchMercadoPagoOrder: vi.fn(),
+  cancelMercadoPagoOrder: vi.fn(),
+  refundMercadoPagoOrder: vi.fn(),
 }));
 
 vi.mock('./lib/mercadopago.ts', async (importOriginal) => {
@@ -14,6 +16,8 @@ vi.mock('./lib/mercadopago.ts', async (importOriginal) => {
     ...actual,
     fetchMercadoPagoOrder: mercadoPagoMocks.fetchMercadoPagoOrder,
     fetchMercadoPagoPayment: mercadoPagoMocks.fetchMercadoPagoPayment,
+    cancelMercadoPagoOrder: mercadoPagoMocks.cancelMercadoPagoOrder,
+    refundMercadoPagoOrder: mercadoPagoMocks.refundMercadoPagoOrder,
   };
 });
 
@@ -453,7 +457,7 @@ describe('Mercado Pago status fallback', () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({ status: 'processed', status_detail: 'accredited' });
-    expect(mercadoPagoMocks.fetchMercadoPagoOrder).toHaveBeenCalledWith('APP_USR-test-token', 'ORD-STATUS');
+    expect(mercadoPagoMocks.fetchMercadoPagoOrder).toHaveBeenCalledWith('APP_USR-test-token', 'ORD-STATUS', undefined);
     expect(bind).toHaveBeenCalledWith(
       'ORD-STATUS',
       'PAY-STATUS',
@@ -502,5 +506,176 @@ describe('Mercado Pago status fallback', () => {
       status: 'action_required',
       status_detail: 'pending_challenge',
     });
+  });
+});
+
+// v01.02.00: integration quality recommendations — operator-only
+// admin endpoints. Tests cover the bearer-auth gate + the SDK
+// passthrough on success; the SDK helpers themselves are unit-tested
+// implicitly through the live MP test environment, not here.
+describe('Operator admin endpoints', () => {
+  beforeEach(() => {
+    mercadoPagoMocks.cancelMercadoPagoOrder.mockReset();
+    mercadoPagoMocks.refundMercadoPagoOrder.mockReset();
+  });
+
+  it('refuses cancel when SPONSOR_OPERATOR_TOKEN is not configured (defaults to disabled, not open)', async () => {
+    const d1 = createDbMock();
+    const response = await app.fetch(
+      new Request('https://sponsor-motor.lcv.app.br/api/orders/ORD-1234/cancel', {
+        method: 'POST',
+        headers: { authorization: 'Bearer something', 'content-type': 'application/json' },
+      }),
+      envWithDb(d1.db),
+    );
+    expect(response.status).toBe(403);
+    expect(mercadoPagoMocks.cancelMercadoPagoOrder).not.toHaveBeenCalled();
+  });
+
+  it('refuses cancel when Authorization header is missing', async () => {
+    const d1 = createDbMock();
+    const response = await app.fetch(
+      new Request('https://sponsor-motor.lcv.app.br/api/orders/ORD-1234/cancel', { method: 'POST' }),
+      { ...envWithDb(d1.db), SPONSOR_OPERATOR_TOKEN: 'op-secret' },
+    );
+    expect(response.status).toBe(401);
+    expect(mercadoPagoMocks.cancelMercadoPagoOrder).not.toHaveBeenCalled();
+  });
+
+  it('refuses cancel when Bearer token does not match', async () => {
+    const d1 = createDbMock();
+    const response = await app.fetch(
+      new Request('https://sponsor-motor.lcv.app.br/api/orders/ORD-1234/cancel', {
+        method: 'POST',
+        headers: { authorization: 'Bearer wrong' },
+      }),
+      { ...envWithDb(d1.db), SPONSOR_OPERATOR_TOKEN: 'op-secret' },
+    );
+    expect(response.status).toBe(401);
+    expect(mercadoPagoMocks.cancelMercadoPagoOrder).not.toHaveBeenCalled();
+  });
+
+  it('cancels via SDK and reflects status in DB on a matching Bearer token', async () => {
+    const d1 = createDbMock();
+    mercadoPagoMocks.cancelMercadoPagoOrder.mockResolvedValueOnce({
+      id: 'ORD-1234',
+      status: 'cancelled',
+      status_detail: 'cancelled_by_operator',
+      external_reference: 'sp_lcv-ideas-software_aaaa',
+    });
+    const response = await app.fetch(
+      new Request('https://sponsor-motor.lcv.app.br/api/orders/ORD-1234/cancel', {
+        method: 'POST',
+        headers: { authorization: 'Bearer op-secret' },
+      }),
+      { ...envWithDb(d1.db), SPONSOR_OPERATOR_TOKEN: 'op-secret' },
+    );
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      orderId: 'ORD-1234',
+      status: 'cancelled',
+      externalReference: 'sp_lcv-ideas-software_aaaa',
+    });
+    expect(mercadoPagoMocks.cancelMercadoPagoOrder).toHaveBeenCalledWith('APP_USR-test-token', 'ORD-1234', undefined);
+  });
+
+  it('forwards integratorId to the cancel SDK helper when MERCADOPAGO_INTEGRATOR_ID is set', async () => {
+    const d1 = createDbMock();
+    mercadoPagoMocks.cancelMercadoPagoOrder.mockResolvedValueOnce({
+      id: 'ORD-1234',
+      status: 'cancelled',
+      external_reference: 'sp_lcv-ideas-software_bbbb',
+    });
+    await app.fetch(
+      new Request('https://sponsor-motor.lcv.app.br/api/orders/ORD-1234/cancel', {
+        method: 'POST',
+        headers: { authorization: 'Bearer op-secret' },
+      }),
+      { ...envWithDb(d1.db), SPONSOR_OPERATOR_TOKEN: 'op-secret', MERCADOPAGO_INTEGRATOR_ID: 'dev-1234' },
+    );
+    expect(mercadoPagoMocks.cancelMercadoPagoOrder).toHaveBeenCalledWith('APP_USR-test-token', 'ORD-1234', 'dev-1234');
+  });
+
+  it('refunds with no body (full refund) on a matching Bearer token', async () => {
+    const d1 = createDbMock();
+    mercadoPagoMocks.refundMercadoPagoOrder.mockResolvedValueOnce({
+      id: 'ORD-9999',
+      status: 'refunded',
+      external_reference: 'sp_lcv-ideas-software_cccc',
+    });
+    const response = await app.fetch(
+      new Request('https://sponsor-motor.lcv.app.br/api/orders/ORD-9999/refund', {
+        method: 'POST',
+        headers: { authorization: 'Bearer op-secret', 'content-length': '0' },
+      }),
+      { ...envWithDb(d1.db), SPONSOR_OPERATOR_TOKEN: 'op-secret' },
+    );
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      orderId: 'ORD-9999',
+      status: 'refunded',
+      partial: false,
+    });
+    const call = mercadoPagoMocks.refundMercadoPagoOrder.mock.calls[0];
+    expect(call?.[0]).toBe('APP_USR-test-token');
+    expect(call?.[1]).toBe('ORD-9999');
+    expect(call?.[2]).toMatchObject({ transactions: undefined, integratorId: undefined });
+  });
+
+  it('refunds with a partial transactions body when provided', async () => {
+    const d1 = createDbMock();
+    mercadoPagoMocks.refundMercadoPagoOrder.mockResolvedValueOnce({
+      id: 'ORD-PARTIAL',
+      status: 'partially_refunded',
+      external_reference: 'sp_lcv-ideas-software_dddd',
+    });
+    const response = await app.fetch(
+      new Request('https://sponsor-motor.lcv.app.br/api/orders/ORD-PARTIAL/refund', {
+        method: 'POST',
+        headers: { authorization: 'Bearer op-secret', 'content-type': 'application/json' },
+        body: JSON.stringify({ transactions: [{ id: 'txn-1', amount: '5.00' }] }),
+      }),
+      { ...envWithDb(d1.db), SPONSOR_OPERATOR_TOKEN: 'op-secret' },
+    );
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ partial: true });
+    const call = mercadoPagoMocks.refundMercadoPagoOrder.mock.calls[0];
+    expect(call?.[2]).toMatchObject({
+      transactions: [{ id: 'txn-1', amount: '5.00' }],
+    });
+  });
+
+  it('rejects malformed refund bodies before hitting the SDK', async () => {
+    const d1 = createDbMock();
+    const response = await app.fetch(
+      new Request('https://sponsor-motor.lcv.app.br/api/orders/ORD-BADBODY/refund', {
+        method: 'POST',
+        headers: { authorization: 'Bearer op-secret', 'content-type': 'application/json' },
+        body: JSON.stringify({ transactions: [{ amount: 'not-a-number' }] }),
+      }),
+      { ...envWithDb(d1.db), SPONSOR_OPERATOR_TOKEN: 'op-secret' },
+    );
+    expect(response.status).toBe(400);
+    expect(mercadoPagoMocks.refundMercadoPagoOrder).not.toHaveBeenCalled();
+  });
+
+  it('rejects unparseable JSON refund bodies with 400 instead of silently full-refunding', async () => {
+    // Regression guard for codex R2 cross-review catch (session 31d7a5dc):
+    // unparseable JSON used to fall through to full refund because
+    // `c.req.json().catch(() => null) ?? undefined` collapsed both the
+    // catch and the absent-body case into `safeParse(undefined)` on an
+    // optional schema. The parse-error path must now respond 400 and
+    // never call refundMercadoPagoOrder.
+    const d1 = createDbMock();
+    const response = await app.fetch(
+      new Request('https://sponsor-motor.lcv.app.br/api/orders/ORD-PARSEERR/refund', {
+        method: 'POST',
+        headers: { authorization: 'Bearer op-secret', 'content-type': 'application/json' },
+        body: '}}}',
+      }),
+      { ...envWithDb(d1.db), SPONSOR_OPERATOR_TOKEN: 'op-secret' },
+    );
+    expect(response.status).toBe(400);
+    expect(mercadoPagoMocks.refundMercadoPagoOrder).not.toHaveBeenCalled();
   });
 });

@@ -47,11 +47,56 @@ These items are documented by Mercado Pago as good practices, but are not safe t
 | Item                                                                                        | Reason                                                                                                                                                 |
 | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Priority shipping / shipping receiver fields                                                | The sponsor flow sells no physical product. Sending fake delivery/priority data would lower data quality.                                              |
-| `additional_info.payer.last_purchase`                                                       | The app has no authenticated buyer history, and inventing this value would be misleading.                                                              |
 | `payer.customer_id`, saved cards, zero-value validation and card updater flows              | The app does not store or reuse cards. Adding this would create a new customer-vaulting product and extra LGPD/security scope.                         |
 | Pix, Wallet Brick, Checkout Pro, Brand Brick, Status Screen Brick, Review and Confirm Brick | These are product/UX expansions, not safe hardening of the current Card Payment Brick + Orders API flow. They should be planned separately if desired. |
-| Public cancellation/refund endpoints                                                        | Refund/cancel are financial mutations and require an authenticated admin workflow, audit trail and operator approval before exposure.                  |
-| Integrator ID                                                                               | Only applies to certified Mercado Pago partners. No partner ID is configured in this workspace.                                                        |
+
+## v01.02.00 additions (2026-05-07)
+
+The items below were originally listed under "Not implemented by design" before the operator pushed for maximum coverage of the Mercado Pago integration quality recommendations. They are now implemented behind opt-in gates (env vars, bearer tokens) so they don't enable themselves automatically.
+
+### Integrator ID (`x-integrator-id`)
+
+`MERCADOPAGO_INTEGRATOR_ID` env var. When defined, it is forwarded to the SDK via `MercadoPagoConfig.options.integratorId`, which the SDK then attaches as the `x-integrator-id` header on every Order create/get/cancel/refund request. Absent env var keeps the integration anonymous (previous behaviour). Operators in the Programa de Parcerias can set the value once in Cloudflare Secrets Store and the worker picks it up on next deploy.
+
+### `additional_info.payer.last_purchase`
+
+`CreateOrderSchema` now accepts an optional `payerLastPurchase` ISO-8601 timestamp. When the caller provides one, it is forwarded to `additional_info.payer.last_purchase` for fraud analysis. The donation flow does not currently surface this on the public form (most sponsors are first-time donors), but the API surface is ready for a future authenticated/repeat-donor path. Empty string and absent field collapse to "no last_purchase" so the SDK does not send a fake value.
+
+### Operator-only refund + cancel endpoints
+
+`POST /api/orders/:orderId/cancel` and `POST /api/orders/:orderId/refund` (full or partial). Both routes are gated by `Authorization: Bearer <SPONSOR_OPERATOR_TOKEN>` with timing-safe comparison. When the worker secret is not configured the routes return 403 (fail-closed); 401 covers missing or mismatched tokens. The SDK helpers (`cancelMercadoPagoOrder`, `refundMercadoPagoOrder`) extract MP error responses consistently and forward the integrator ID when set. Local D1 status is reflected when the returned order matches a row we own.
+
+Operators trigger refunds/cancellations via curl with the secret token; there is no public UI for these actions today.
+
+```bash
+# Full refund example (operator-side, not in the public flow):
+curl -X POST https://sponsor-motor.lcv.app.br/api/orders/ORD-123/refund \
+  -H "Authorization: Bearer $SPONSOR_OPERATOR_TOKEN"
+
+# Partial refund (single transaction):
+curl -X POST https://sponsor-motor.lcv.app.br/api/orders/ORD-123/refund \
+  -H "Authorization: Bearer $SPONSOR_OPERATOR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"transactions":[{"id":"txn-1","amount":"5.00"}]}'
+
+# Cancel pre-capture:
+curl -X POST https://sponsor-motor.lcv.app.br/api/orders/ORD-123/cancel \
+  -H "Authorization: Bearer $SPONSOR_OPERATOR_TOKEN"
+```
+
+### Mercado Pago logo on `/sponsor`
+
+The official Mercado Pago logo is now displayed near the "Apoiar agora" panel header on the public form, linking to `mercadopago.com.br`. This addresses the "Logotipos oficiais do Mercado Pago" recommendation while keeping LCV branding dominant in the page chrome.
+
+### v01.02.00 status table
+
+| Item                       | Status before v01.02.00       | Status after v01.02.00                                                                       |
+| -------------------------- | ----------------------------- | -------------------------------------------------------------------------------------------- |
+| Integrator ID              | Documented as not configured  | Implemented, env-driven; absent env keeps prior anonymous behaviour                          |
+| `payer.last_purchase`      | Not implemented (donation N/A) | Optional API field; only forwarded when caller provides value                                |
+| Cancellation API endpoint  | Not exposed                   | `POST /api/orders/:id/cancel` with bearer-token auth; fail-closed when token not configured  |
+| Refund API endpoint        | Not exposed                   | `POST /api/orders/:id/refund` (full + partial) with bearer-token auth; fail-closed otherwise |
+| Mercado Pago logo on UI    | Not displayed                 | Official MP logo near the payment area on `/sponsor` (links to mercadopago.com.br)           |
 
 ## Operational guardrails
 

@@ -67,7 +67,18 @@ export interface OrderRequest {
   payerAddress: MercadoPagoAddress;
   payerRegistrationDate: string;
   firstPurchaseOnline: boolean;
+  // v01.02.00: integration quality recommendation —
+  // `additional_info.payer.last_purchase` is forwarded to MP fraud
+  // analysis when the caller has prior order history available. The
+  // sponsor flow defaults to omitting it (most donors are new), but
+  // the API surface accepts an ISO-8601 timestamp so a future caller
+  // (logged-in operator, repeat-donor lookup, etc.) can supply it
+  // without re-shaping the contract.
+  payerLastPurchase?: string | undefined;
   threeDsValidation?: ThreeDsValidation | undefined;
+  // v01.02.00: Programa de Parcerias Integrator ID forwarded as the
+  // `x-integrator-id` header by the SDK; undefined means "no header".
+  integratorId?: string | undefined;
 }
 
 const SPONSOR_ITEM_CATEGORY_ID = 'services';
@@ -108,8 +119,19 @@ function ensureNodeFetchHeadersCompat(): void {
   });
 }
 
-function mercadoPagoClient(accessToken: string): MercadoPagoConfig {
+// v01.02.00: integration quality recommendation — propagate the
+// Integrator ID assigned by the Programa de Parcerias when present.
+// The SDK forwards `options.integratorId` as the `x-integrator-id`
+// header on every request; absence is fine for self-deployed
+// integrations and the SDK simply omits the header.
+function mercadoPagoClient(accessToken: string, integratorId?: string): MercadoPagoConfig {
   ensureNodeFetchHeadersCompat();
+  if (integratorId && integratorId.trim().length > 0) {
+    return new MercadoPagoConfig({
+      accessToken,
+      options: { integratorId: integratorId.trim() },
+    });
+  }
   return new MercadoPagoConfig({ accessToken });
 }
 
@@ -259,6 +281,11 @@ export async function createMercadoPagoOrder(request: OrderRequest): Promise<Ord
       'payer.registration_date': request.payerRegistrationDate,
       'payer.authentication_type': 'WEB',
       'payer.is_first_purchase_online': request.firstPurchaseOnline,
+      // v01.02.00: integration quality recommendation —
+      // `additional_info.payer.last_purchase` (ISO timestamp). Only
+      // include when the caller actually knows a prior purchase
+      // date; sending an empty string would degrade fraud analysis.
+      ...(request.payerLastPurchase ? { 'payer.last_purchase': request.payerLastPurchase } : {}),
     },
     items: [sponsorItem(request.projectSlug, amount)],
     config: {
@@ -291,7 +318,7 @@ export async function createMercadoPagoOrder(request: OrderRequest): Promise<Ord
 
   let data: MercadoPagoOrderResponse | undefined;
   try {
-    const payload = await new Order(mercadoPagoClient(request.accessToken)).create({
+    const payload = await new Order(mercadoPagoClient(request.accessToken, request.integratorId)).create({
       body: orderBody,
       requestOptions: { idempotencyKey: request.externalReference },
     });
@@ -328,9 +355,10 @@ interface MercadoPagoPaymentResponse {
 export async function fetchMercadoPagoPayment(
   accessToken: string,
   paymentId: string,
+  integratorId?: string,
 ): Promise<MercadoPagoPaymentResponse> {
   try {
-    return await new Payment(mercadoPagoClient(accessToken)).get({ id: paymentId });
+    return await new Payment(mercadoPagoClient(accessToken, integratorId)).get({ id: paymentId });
   } catch (error) {
     throw new MercadoPagoLookupError(sdkErrorMessage(error, 'Mercado Pago payment lookup failed.'), {
       status: sdkErrorStatus(error),
@@ -338,11 +366,93 @@ export async function fetchMercadoPagoPayment(
   }
 }
 
-export async function fetchMercadoPagoOrder(accessToken: string, orderId: string): Promise<MercadoPagoOrderResponse> {
+export async function fetchMercadoPagoOrder(
+  accessToken: string,
+  orderId: string,
+  integratorId?: string,
+): Promise<MercadoPagoOrderResponse> {
   try {
-    return await new Order(mercadoPagoClient(accessToken)).get({ id: orderId });
+    return await new Order(mercadoPagoClient(accessToken, integratorId)).get({ id: orderId });
   } catch (error) {
     throw new MercadoPagoLookupError(sdkErrorMessage(error, 'Mercado Pago order lookup failed.'), {
+      status: sdkErrorStatus(error),
+    });
+  }
+}
+
+// v01.02.00: integration quality recommendation —
+// "Cancelamento do pedido via API". Cancels an order that hasn't been
+// captured/processed yet (sponsor flow uses `capture_mode:
+// automatic_async`, so the cancel window is short — once MP captures
+// the auth, the operator path is `refundMercadoPagoOrder` instead).
+// The Worker route guards this behind a bearer token; the SDK call
+// here does not authenticate beyond the standard access token.
+export async function cancelMercadoPagoOrder(
+  accessToken: string,
+  orderId: string,
+  integratorId?: string,
+): Promise<MercadoPagoOrderResponse> {
+  try {
+    const payload = await new Order(mercadoPagoClient(accessToken, integratorId)).cancel({ id: orderId });
+    const data = extractMercadoPagoOrderResponse(payload);
+    if (!data?.id) throw new Error('Mercado Pago did not return a valid order on cancel.');
+    return data;
+  } catch (error) {
+    const data = extractMercadoPagoOrderResponse(error);
+    if (data?.id) return data;
+    throw new MercadoPagoLookupError(sdkErrorMessage(error, 'Mercado Pago order cancel failed.'), {
+      status: sdkErrorStatus(error),
+    });
+  }
+}
+
+// v01.02.00: integration quality recommendation — "Reembolsos".
+// Refunds an order in full when `transactions` is omitted, or
+// per-transaction (partial) when the caller passes `transactions: [{
+// id, amount }, ...]`. The amount is a string with two decimals (BRL
+// convention). The Worker route guards this behind a bearer token.
+//
+// Optional-key shape (no explicit `| undefined`) matches the SDK's
+// `TransactionRefundRequest` under `exactOptionalPropertyTypes`. The
+// Worker normalizes zod-parsed bodies before passing them in so that
+// `undefined` fields are stripped rather than carried through.
+export interface OrderRefundTransaction {
+  id?: string;
+  amount?: string;
+}
+
+function normalizeRefundTransaction(input: {
+  id?: string | undefined;
+  amount?: string | undefined;
+}): OrderRefundTransaction {
+  const out: OrderRefundTransaction = {};
+  if (typeof input.id === 'string' && input.id.length > 0) out.id = input.id;
+  if (typeof input.amount === 'string' && input.amount.length > 0) out.amount = input.amount;
+  return out;
+}
+
+export async function refundMercadoPagoOrder(
+  accessToken: string,
+  orderId: string,
+  options: {
+    transactions?: Array<{ id?: string | undefined; amount?: string | undefined }> | undefined;
+    integratorId?: string | undefined;
+  } = {},
+): Promise<MercadoPagoOrderResponse> {
+  try {
+    const normalizedTxns = options.transactions?.map(normalizeRefundTransaction) ?? [];
+    const refundBody = normalizedTxns.length > 0 ? { transactions: normalizedTxns } : undefined;
+    const payload = await new Order(mercadoPagoClient(accessToken, options.integratorId)).refund({
+      id: orderId,
+      ...(refundBody ? { body: refundBody } : {}),
+    });
+    const data = extractMercadoPagoOrderResponse(payload);
+    if (!data?.id) throw new Error('Mercado Pago did not return a valid order on refund.');
+    return data;
+  } catch (error) {
+    const data = extractMercadoPagoOrderResponse(error);
+    if (data?.id) return data;
+    throw new MercadoPagoLookupError(sdkErrorMessage(error, 'Mercado Pago order refund failed.'), {
       status: sdkErrorStatus(error),
     });
   }

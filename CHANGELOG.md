@@ -1,5 +1,22 @@
 # Changelog
 
+## [APP v01.02.00] - 2026-05-07
+
+### Added
+
+- Suporte a `MERCADOPAGO_INTEGRATOR_ID` (Programa de Parcerias). Quando definido, o SDK do Mercado Pago propaga o cabeçalho `x-integrator-id` em todas as chamadas de criação, cancelamento e reembolso de orders. Sem o env var, a integração permanece anônima como antes.
+- Suporte a `additional_info.payer.last_purchase` (recomendação de qualidade da integração). O schema `CreateOrderSchema` aceita o campo opcional `payerLastPurchase` (ISO-8601). Vazio ou ausente = field omitido no payload da Orders API.
+- Endpoint operador-only `POST /api/orders/:orderId/cancel` para cancelar uma order ainda não capturada via SDK `Order.cancel`. Protegido pelo bearer token `SPONSOR_OPERATOR_TOKEN` (timing-safe comparison; 403 quando não configurado, 401 quando token ausente/inválido). Reflete o status final no D1 quando o `external_reference` retornado pertence a uma linha local.
+- Endpoint operador-only `POST /api/orders/:orderId/refund` para reembolso total (body vazio) ou parcial (`{ transactions: [{ id, amount }] }`) via SDK `Order.refund`. Mesma proteção bearer + atualização local do D1 + validação Zod do body antes de hit no MP.
+- Helpers `cancelMercadoPagoOrder` e `refundMercadoPagoOrder` em `src/lib/mercadopago.ts` com extração consistente de erros e suporte ao `integratorId` para o cabeçalho `x-integrator-id`.
+- 8 novos testes unitários (`src/index.test.ts` `Operator admin endpoints`) cobrindo: gate desabilitado por default; ausência/mismatch de Authorization → 401/403; cancel + refund passthrough no SDK em token correto; encaminhamento de `MERCADOPAGO_INTEGRATOR_ID`; refund parcial; rejeição de body malformado.
+
+### Notes
+
+- Mudança aditiva no schema (`payerLastPurchase` opcional). Frontends pré-v01.02.00 continuam funcionando sem alterações; o campo é simplesmente omitido do payload `additional_info`.
+- Os endpoints admin retornam 403 enquanto `SPONSOR_OPERATOR_TOKEN` não estiver presente em `wrangler.json` `secrets_store_secrets` — fail-closed por design para não abrir uma superfície de cancelamento/reembolso por engano.
+- Testes 28/28 GREEN. Lint + typecheck + format public limpos.
+
 ## [APP v01.01.07] - 2026-05-07
 
 ### Added

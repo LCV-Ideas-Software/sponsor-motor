@@ -61,6 +61,38 @@ export const CreateOrderSchema = z.object({
     .trim()
     .refine((value) => !Number.isNaN(Date.parse(value)), 'Invalid payer registration date.'),
   firstPurchaseOnline: z.boolean(),
+  // v01.02.00: integration quality recommendation —
+  // `additional_info.payer.last_purchase`. Optional ISO-8601 timestamp
+  // forwarded to MP fraud analysis when the caller actually knows a
+  // prior purchase date for the payer. Empty string is treated as
+  // absent. Frontends that do not surface the field can simply omit
+  // it; the API contract stays compatible.
+  payerLastPurchase: z
+    .string()
+    .trim()
+    .refine((value) => value === '' || !Number.isNaN(Date.parse(value)), 'Invalid payer last_purchase date.')
+    .optional()
+    .or(z.literal('')),
 });
 
 export type CreateOrderInput = z.infer<typeof CreateOrderSchema>;
+
+// v01.02.00: refund and cancel request bodies for the operator-only
+// admin endpoints. Refund is full unless `transactions` is provided
+// (then it is a per-transaction partial). Cancel takes no body.
+const RefundTransactionSchema = z.object({
+  id: z.string().trim().min(1).max(64).optional(),
+  amount: z
+    .string()
+    .trim()
+    .regex(/^\d+(\.\d{1,2})?$/, 'amount must be a positive decimal with up to 2 places')
+    .optional(),
+});
+
+export const RefundOrderSchema = z
+  .object({
+    transactions: z.array(RefundTransactionSchema).min(1).max(8).optional(),
+  })
+  .optional();
+
+export type RefundOrderInput = z.infer<typeof RefundOrderSchema>;

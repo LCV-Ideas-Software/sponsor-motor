@@ -68,6 +68,7 @@ export interface PreferenceRequest {
   amountCents: number;
   payerEmail?: string | undefined;
   payerName?: string | undefined;
+  walletOnly?: boolean | undefined;
 }
 
 export interface OrderRequest {
@@ -80,11 +81,25 @@ export interface OrderRequest {
   paymentType: 'credit_card' | 'debit_card';
   installments: number;
   payerEmail: string;
-  payerName?: string | undefined;
+  payerFirstName: string;
+  payerLastName: string;
   payerIdentification?: { type: string; number: string } | undefined;
+  payerAddress: MercadoPagoAddress;
+  payerRegistrationDate: string;
+  firstPurchaseOnline: boolean;
 }
 
 const SPONSOR_ITEM_CATEGORY_ID = 'services';
+
+export interface MercadoPagoAddress {
+  zip_code: string;
+  street_name: string;
+  street_number: string;
+  neighborhood: string;
+  city: string;
+  state: string;
+  complement?: string | undefined;
+}
 
 type HeadersWithRaw = Headers & {
   raw?: () => Record<string, string[]>;
@@ -217,7 +232,7 @@ function sponsorItem(projectSlug: SponsorProjectSlug, amount: string) {
   };
 }
 
-export async function createMercadoPagoPreference(request: PreferenceRequest): Promise<PreferenceResult> {
+export function buildMercadoPagoPreferenceBody(request: PreferenceRequest) {
   const project = PROJECT_BY_SLUG.get(request.projectSlug);
   const title = project ? `Apoio ${project.name}` : 'Apoio LCV Ideas & Software';
   const amount = amountFromCents(request.amountCents);
@@ -227,7 +242,7 @@ export async function createMercadoPagoPreference(request: PreferenceRequest): P
   if (request.payerName) payer.name = request.payerName;
   if (request.payerEmail) payer.email = request.payerEmail;
 
-  const preferenceBody = {
+  return {
     items: [
       {
         id: request.projectSlug,
@@ -241,6 +256,7 @@ export async function createMercadoPagoPreference(request: PreferenceRequest): P
     ],
     ...(Object.keys(payer).length ? { payer } : {}),
     external_reference: request.externalReference,
+    ...(request.walletOnly ? { purpose: 'wallet_purchase' } : {}),
     notification_url: notificationUrl,
     back_urls: {
       success: appendQuery(returnBase, { status: 'success', ref: request.externalReference }),
@@ -254,11 +270,13 @@ export async function createMercadoPagoPreference(request: PreferenceRequest): P
       source: 'sponsor-motor',
     },
   };
+}
 
+export async function createMercadoPagoPreference(request: PreferenceRequest): Promise<PreferenceResult> {
   let data: MercadoPagoPreferenceResponse;
   try {
     data = await new Preference(mercadoPagoClient(request.accessToken)).create({
-      body: preferenceBody,
+      body: buildMercadoPagoPreferenceBody(request),
     });
   } catch (error) {
     throw new Error(sdkErrorMessage(error, 'Mercado Pago preference creation failed.'));
@@ -284,8 +302,11 @@ export async function createMercadoPagoOrder(request: OrderRequest): Promise<Ord
 
   const payer = {
     email: request.payerEmail,
-    ...(request.payerName ? { first_name: request.payerName } : {}),
+    entity_type: 'individual',
+    first_name: request.payerFirstName,
+    last_name: request.payerLastName,
     ...(request.payerIdentification ? { identification: request.payerIdentification } : {}),
+    address: request.payerAddress,
   };
 
   const orderBody = {
@@ -295,7 +316,18 @@ export async function createMercadoPagoOrder(request: OrderRequest): Promise<Ord
     external_reference: request.externalReference,
     total_amount: amount,
     currency: 'BRL',
+    description: `Apoio ${request.projectSlug}`,
     payer,
+    shipment: {
+      address: request.payerAddress,
+    },
+    additional_info: {
+      'shipment.express': false,
+      'shipment.local_pickup': false,
+      'payer.registration_date': request.payerRegistrationDate,
+      'payer.authentication_type': 'WEB',
+      'payer.is_first_purchase_online': request.firstPurchaseOnline,
+    },
     items: [sponsorItem(request.projectSlug, amount)],
     config: {
       online: {

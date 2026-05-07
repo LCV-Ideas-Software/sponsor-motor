@@ -52,6 +52,27 @@ function centsFromMercadoPagoAmount(value: string | number | undefined): number 
   return Math.round(amount * 100);
 }
 
+function normalizeAddress(input: {
+  zipCode: string;
+  streetName: string;
+  streetNumber: string;
+  neighborhood: string;
+  city: string;
+  state: string;
+  complement?: string | undefined;
+}) {
+  const complement = input.complement?.trim();
+  return {
+    zip_code: input.zipCode.trim(),
+    street_name: input.streetName.trim(),
+    street_number: input.streetNumber.trim(),
+    neighborhood: input.neighborhood.trim(),
+    city: input.city.trim(),
+    state: input.state.trim().toUpperCase(),
+    ...(complement ? { complement } : {}),
+  };
+}
+
 app.use('*', timing());
 
 app.use(
@@ -112,6 +133,7 @@ app.post('/api/preferences', async (c) => {
     amountCents,
     payerEmail: email,
     payerName: name,
+    walletOnly: parsed.data.walletOnly === true,
   });
 
   await insertPreference(c.env.BIGDATA_DB, {
@@ -156,7 +178,10 @@ app.post('/api/orders', async (c) => {
   const timestamp = nowMs();
   const externalReference = `sp_${projectSlug}_${crypto.randomUUID()}`;
   const email = parsed.data.email.trim().toLowerCase();
-  const name = parsed.data.name ? parsed.data.name.trim() : undefined;
+  const firstName = parsed.data.firstName.trim();
+  const lastName = parsed.data.lastName.trim();
+  const name = `${firstName} ${lastName}`;
+  const address = normalizeAddress(parsed.data.address);
 
   const order = await createMercadoPagoOrder({
     accessToken: resolved.MERCADOPAGO_ACCESS_TOKEN,
@@ -168,8 +193,12 @@ app.post('/api/orders', async (c) => {
     paymentType: parsed.data.paymentType,
     installments: parsed.data.installments,
     payerEmail: email,
-    payerName: name,
+    payerFirstName: firstName,
+    payerLastName: lastName,
     payerIdentification: parsed.data.identification,
+    payerAddress: address,
+    payerRegistrationDate: new Date(parsed.data.payerRegistrationDate).toISOString(),
+    firstPurchaseOnline: parsed.data.firstPurchaseOnline,
   });
 
   await insertOrderPayment(c.env.BIGDATA_DB, {

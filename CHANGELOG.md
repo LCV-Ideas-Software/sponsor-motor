@@ -1,5 +1,13 @@
 # Changelog
 
+## [APP v01.01.03] - 2026-05-07
+
+### Changed
+
+- Enriquecido o payload da Orders API com `payer.last_name`, `payer.address`, `shipment.address` e `additional_info` antifraude aceito pela Orders API.
+- Adicionada opção explícita de Conta Mercado Pago em `/api/preferences` com `purpose=wallet_purchase`, sem interferir no fluxo principal por cartão/Orders.
+- Mantida postura zero-trust: dados pessoais completos seguem sem persistência em claro no `bigdata_db`; apenas hashes técnicos continuam gravados.
+
 ## [APP v01.01.02] - 2026-05-07
 
 ### Fixed

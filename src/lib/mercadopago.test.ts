@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createMercadoPagoOrder } from './mercadopago.ts';
+import { buildMercadoPagoPreferenceBody, createMercadoPagoOrder } from './mercadopago.ts';
 
 const baseRequest = {
   accessToken: 'APP_USR-test-token',
@@ -11,7 +11,19 @@ const baseRequest = {
   paymentType: 'credit_card' as const,
   installments: 1,
   payerEmail: 'sponsor@example.com',
-  payerName: 'Sponsor Test',
+  payerFirstName: 'Sponsor',
+  payerLastName: 'Test',
+  payerAddress: {
+    zip_code: '05424-150',
+    street_name: 'Rua Pais Leme',
+    street_number: '215',
+    neighborhood: 'Pinheiros',
+    city: 'Sao Paulo',
+    state: 'SP',
+    complement: 'Conj 1713',
+  },
+  payerRegistrationDate: '2026-01-01T00:00:00.000Z',
+  firstPurchaseOnline: true,
 };
 
 describe('createMercadoPagoOrder', () => {
@@ -53,7 +65,21 @@ describe('createMercadoPagoOrder', () => {
     expect(url).toBe('https://api.mercadopago.com/v1/orders');
     expect(headers.Authorization).toBe('Bearer APP_USR-test-token');
     expect(headers['X-Idempotency-Key']).toBe(baseRequest.externalReference);
-    expect(body.additional_info).toBeUndefined();
+    expect(body.payer).toMatchObject({
+      email: baseRequest.payerEmail,
+      entity_type: 'individual',
+      first_name: baseRequest.payerFirstName,
+      last_name: baseRequest.payerLastName,
+      address: baseRequest.payerAddress,
+    });
+    expect(body.shipment.address).toEqual(baseRequest.payerAddress);
+    expect(body.additional_info).toEqual({
+      'shipment.express': false,
+      'shipment.local_pickup': false,
+      'payer.registration_date': baseRequest.payerRegistrationDate,
+      'payer.authentication_type': 'WEB',
+      'payer.is_first_purchase_online': true,
+    });
     expect(body.items[0].category_id).toBe('services');
     expect(body.config.online.transaction_security).toEqual({
       validation: 'on_fraud_risk',
@@ -87,6 +113,28 @@ describe('createMercadoPagoOrder', () => {
       status: 'failed',
       paymentStatus: 'failed',
       paymentStatusDetail: 'invalid_card_token',
+    });
+  });
+});
+
+describe('buildMercadoPagoPreferenceBody', () => {
+  it('marks Mercado Pago account preferences as wallet-only when requested', () => {
+    const body = buildMercadoPagoPreferenceBody({
+      accessToken: 'APP_USR-test-token',
+      publicBaseUrl: 'https://www.lcv.dev',
+      apiBaseUrl: 'https://sponsor-motor.lcv.app.br',
+      projectSlug: 'lcv-ideas-software',
+      externalReference: baseRequest.externalReference,
+      amountCents: 1000,
+      payerEmail: baseRequest.payerEmail,
+      payerName: `${baseRequest.payerFirstName} ${baseRequest.payerLastName}`,
+      walletOnly: true,
+    });
+
+    expect(body).toMatchObject({
+      purpose: 'wallet_purchase',
+      external_reference: baseRequest.externalReference,
+      notification_url: 'https://sponsor-motor.lcv.app.br/api/webhooks/mercadopago',
     });
   });
 });

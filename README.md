@@ -4,12 +4,14 @@ Cloudflare Worker dedicado para processar apoios/doações via Mercado Pago Chec
 
 ## Status
 
-Stable bootstrap. Current release: **APP v01.01.07**.
+Stable bootstrap. Current release: **APP v01.02.01**.
 
 ## Histórico de versões
 
 | Versão          | Mudanças                                                                                                                                                                                                                                   |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **`v01.02.01`** | **Página pública e catálogo de sponsor.** Publica `site/` no padrão dos demais repositórios em `sponsor-motor.lcv.dev`, adiciona `Sponsor Motor` ao catálogo aceito pelo backend e à página central `/sponsor`.                            |
+| **`v01.02.00`** | **Operações e qualidade Mercado Pago.** Adiciona `MERCADOPAGO_INTEGRATOR_ID`, `payerLastPurchase`, endpoints operador-only de cancelamento/reembolso e cobertura de testes para essas rotas administrativas.                               |
 | **`v01.01.07`** | **Boas práticas Mercado Pago/3DS.** Criação de Orders via SDK oficial, telefone opcional do pagador, fallback server-side de status por Orders API, logs sem PII e manual de qualidade da integração.                                      |
 | **`v01.01.06`** | **Fluxo 100% Orders API.** Desativa o fallback Checkout Pro/Conta Mercado Pago, remove a opção wallet, pré-registra tentativas antes da chamada ao MP e preserva estados de webhook ao separar IDs `PAY...` de Payment IDs numéricos.      |
 | **`v01.01.05`** | **Webhook Mercado Pago com `ts` em segundos.** Assinaturas reais da dashboard agora validam `x-signature.ts` em segundos ou milissegundos, corrigindo `401` em notificações como `payment.created`.                                        |

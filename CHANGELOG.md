@@ -1,5 +1,19 @@
 # Changelog
 
+## [APP v01.02.01] - 2026-05-08
+
+### Added
+
+- Publicada a página estática `site/index.html` no mesmo padrão visual dos demais repositórios com site, incluindo CTA para `https://www.lcv.dev/sponsor?project=sponsor-motor`, card do GitHub Sponsors e rodapé institucional.
+- Adicionado `site/CNAME` com o custom domain GitHub Pages `sponsor-motor.lcv.dev`.
+- Adicionado `sponsor-motor` ao catálogo aceito por `/api/projects`, permitindo seleção e checkout central por `project=sponsor-motor`.
+- Adicionado `Sponsor Motor` ao seletor da página central `/sponsor` em `.github-org`.
+
+### Notes
+
+- A página própria do repositório não processa dados de pagamento nem coleta dados de cartão; ela encaminha o apoio para o fluxo central seguro em `www.lcv.dev/sponsor`.
+- Mudança aditiva no catálogo: slugs existentes continuam válidos e o fallback permanece `lcv-ideas-software`.
+
 ## [APP v01.02.00] - 2026-05-07
 
 ### Added

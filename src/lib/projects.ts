@@ -9,6 +9,7 @@ export const SPONSOR_PROJECTS = [
   { slug: 'maestro-app', name: 'Maestro Editorial AI', repo: 'https://github.com/LCV-Ideas-Software/maestro-app' },
   { slug: 'mainsite-app', name: 'MainSite App', repo: 'https://github.com/LCV-Ideas-Software/mainsite-app' },
   { slug: 'mtasts-motor', name: 'MTA-STS Motor', repo: 'https://github.com/LCV-Ideas-Software/mtasts-motor' },
+  { slug: 'sponsor-motor', name: 'Sponsor Motor', repo: 'https://github.com/LCV-Ideas-Software/sponsor-motor' },
   {
     slug: 'oraculo-financeiro',
     name: 'Oraculo Financeiro',

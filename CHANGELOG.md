@@ -1,5 +1,13 @@
 # Changelog
 
+## [APP v01.02.02] - 2026-05-09
+
+**Patch — `site/index.html` visual identity refresh.** Página GitHub Pages reskin pra nova identidade dark-first navy/cyan da org LCV (paleta `#050b18`/`#38bdf8`/`#34d399`, gradientes radiais, glow shadows, gradient text no h1). Companion ship coordenado com cross-review-v1 1.12.9, cross-review-v2 v2.18.7, deepseek-cli 0.3.1, grok-cli 1.6.2 e `.github-org/site` (root + /sponsor). Sem mudança no Worker runtime; apenas a página GitHub Pages do repo é afetada.
+
+### Changed
+
+- **`site/index.html`** — substituído `<style>` block por sistema de tokens dark-first navy/cyan; HTML/copy não alterados.
+
 ## [APP v01.02.01] - 2026-05-08
 
 ### Added

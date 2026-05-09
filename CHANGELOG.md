@@ -1,5 +1,13 @@
 # Changelog
 
+## [APP v01.02.03] - 2026-05-09
+
+**Patch — `site/index.html` GitHub Sponsors iframe replaced with styled dark link card.** Companion ship coordenado Phase 3 (12 repos). Iframe cross-origin branco → link card dark navy + ❤ pink + meta cyan + seta animada; card movido para DEPOIS dos botões. Sem mudança no Worker runtime; apenas a página GitHub Pages do repo é afetada.
+
+### Changed
+
+- **`site/index.html`** — iframe → link card dark + reordenação.
+
 ## [APP v01.02.02] - 2026-05-09
 
 **Patch — `site/index.html` visual identity refresh.** Página GitHub Pages reskin pra nova identidade dark-first navy/cyan da org LCV (paleta `#050b18`/`#38bdf8`/`#34d399`, gradientes radiais, glow shadows, gradient text no h1). Companion ship coordenado com cross-review-v1 1.12.9, cross-review-v2 v2.18.7, deepseek-cli 0.3.1, grok-cli 1.6.2 e `.github-org/site` (root + /sponsor). Sem mudança no Worker runtime; apenas a página GitHub Pages do repo é afetada.

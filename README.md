@@ -4,12 +4,13 @@ Cloudflare Worker dedicado para processar apoios/doações via Mercado Pago Chec
 
 ## Status
 
-Stable bootstrap. Current release: **APP v01.02.02**.
+Stable bootstrap. Current release: **APP v01.02.03**.
 
 ## Histórico de versões
 
 | Versão          | Mudanças                                                                                                                                                                                                                                   |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **`v01.02.03`** | **Site sponsor card iteration.** `site/index.html` GitHub Sponsors iframe (caixa branca cross-origin) substituído por link card dark navy com ❤ pink + meta cyan + seta animada; card movido para DEPOIS dos botões (lcv.dev/sponsor primário, GitHub Sponsors alternativa). Companion ship Phase 3 (12 repos). |
 | **`v01.02.02`** | **Identidade visual da org.** Reskin da página `site/index.html` (GitHub Pages) pra nova paleta dark-first navy/cyan da LCV (`#050b18`/`#38bdf8`/`#34d399`, gradientes, glow). Companion ship coordenado com `cross-review-v1` 1.12.9, `cross-review-v2` v02.18.07, `deepseek-cli` 0.3.1, `grok-cli` 1.6.2 e `.github-org/site` (org root + /sponsor). Sem mudança no Worker runtime; apenas a página GitHub Pages muda.                          |
 | **`v01.02.01`** | **Página pública e catálogo de sponsor.** Publica `site/` no padrão dos demais repositórios em `sponsor-motor.lcv.dev`, adiciona `Sponsor Motor` ao catálogo aceito pelo backend e à página central `/sponsor`.                            |
 | **`v01.02.00`** | **Operações e qualidade Mercado Pago.** Adiciona `MERCADOPAGO_INTEGRATOR_ID`, `payerLastPurchase`, endpoints operador-only de cancelamento/reembolso e cobertura de testes para essas rotas administrativas.                               |

@@ -1,4 +1,4 @@
-export const APP_VERSION = 'APP v01.02.02';
+export const APP_VERSION = 'APP v01.02.03';
 
 export interface SecretStoreBinding {
   get(): Promise<string>;

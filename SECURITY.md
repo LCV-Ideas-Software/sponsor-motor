@@ -7,6 +7,7 @@ Report security issues privately to the repository owner before public disclosur
 **Contact:** alert@lcvmail.com
 
 Include:
+
 - affected component or endpoint
 - impact and exploitability
 - reproduction steps or proof of concept, if safe to share
@@ -20,7 +21,7 @@ The maintainer will triage as soon as practical. Critical reports that may expos
 
 ## Supported Versions
 
-| Version | Supported |
-| --- | --- |
-| Latest release / `main` | Yes |
-| Older releases | Security updates only when operationally practical |
+| Version                 | Supported                                          |
+| ----------------------- | -------------------------------------------------- |
+| Latest release / `main` | Yes                                                |
+| Older releases          | Security updates only when operationally practical |

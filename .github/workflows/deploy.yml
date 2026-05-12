@@ -45,12 +45,12 @@ jobs:
         env:
           D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
       - name: Apply D1 migrations
-        run: npx --no-install wrangler d1 migrations apply bigdata_db --remote
+        run: npx --registry=https://registry.npmjs.org/ --no-install wrangler d1 migrations apply bigdata_db --remote
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       - name: Deploy Worker
-        run: npx --no-install wrangler deploy
+        run: npx --registry=https://registry.npmjs.org/ --no-install wrangler deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

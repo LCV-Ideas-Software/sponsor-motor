@@ -25,6 +25,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run biome
       - run: npm run check
     timeout-minutes: 30
 concurrency:

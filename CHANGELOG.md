@@ -1,5 +1,24 @@
 # Changelog
 
+## [APP v01.02.04] - 2026-05-15
+
+**Patch — 4-gate quality directive compliance (eslint + biome + prettier + cross-review).** Workspace directive 2026-05-15: every code change must pass eslint + biome + prettier + cross-review before Commit & Sync / tag / release / deploy / publish. (Note: sponsor-motor não tem eslint instalado; biome serves both lint and format roles via `format:check` + `lint` scripts. O `npm run check` aggregate já rodava biome + prettier; este ship adiciona explicit `npm run biome` step antes do check.)
+
+### Adicionado
+
+- `npm run biome` (biome check .) + `npm run biome:write` (biome check --write .) scripts.
+- `ci.yml` workflow: explicit `npm run biome` step antes do `npm run check`.
+- `deploy.yml` workflow: explicit `Biome (lint + format)` step antes do `Verify`.
+
+### Configurado
+
+- `biome.json` schema URL `2.2.0` → `2.4.14` (installed CLI version; removes deserialize warning).
+
+### Alterado
+
+- 4 source files reformatted by `biome check --write .` (cosmetic only; no semantic changes).
+- APP_VERSION + package.json synced `v01.02.03` → `v01.02.04`.
+
 ## [APP v01.02.03] - 2026-05-09
 
 **Patch — `site/index.html` GitHub Sponsors iframe replaced with styled dark link card.** Companion ship coordenado Phase 3 (12 repos). Iframe cross-origin branco → link card dark navy + ❤ pink + meta cyan + seta animada; card movido para DEPOIS dos botões. Sem mudança no Worker runtime; apenas a página GitHub Pages do repo é afetada.

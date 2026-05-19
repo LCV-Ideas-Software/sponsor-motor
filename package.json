@@ -29,17 +29,17 @@
     "db:migrate:remote": "wrangler d1 migrations apply bigdata_db --remote"
   },
   "dependencies": {
-    "hono": "^4.12.19",
+    "hono": "^4.12.21",
     "mercadopago": "2.12.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.15",
-    "@cloudflare/workers-types": "^4.20260518.1",
+    "@cloudflare/workers-types": "^4.20260519.1",
     "prettier": "^3.8.3",
     "typescript": "^6.0.3",
     "vitest": "^4.1.6",
-    "wrangler": "^4.92.0"
+    "wrangler": "^4.93.0"
   },
   "engines": {
     "node": ">=22"

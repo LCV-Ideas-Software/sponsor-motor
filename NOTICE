@@ -1,0 +1,7 @@
+sponsor-motor
+Copyright 2026 LCV Ideas & Software
+
+This repository contains a Cloudflare Worker for LCV Ideas & Software sponsor
+payments via Mercado Pago.
+
+Third-party components and notices are listed in THIRDPARTY.md.

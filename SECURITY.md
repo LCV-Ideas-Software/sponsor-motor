@@ -1,27 +1,33 @@
 # Security Policy
 
-## Reporting
+## Supported status
 
-Report security issues privately to the repository owner before public disclosure.
+Latest supported release: APP v01.02.04 / tag v01.02.04. The current main branch is also supported for security fixes until the next release is published.
 
-**Contact:** alert@lcvmail.com
+## Reporting a vulnerability
 
-Include:
+Please do not open a public issue for suspected vulnerabilities, credential leaks, private data exposure, authentication bypasses, payment-flow issues, supply-chain issues, or deployment misconfiguration.
 
-- affected component or endpoint
-- impact and exploitability
-- reproduction steps or proof of concept, if safe to share
-- suggested fix, if available
+Report privately by email:
 
-The maintainer will triage as soon as practical. Critical reports that may expose user data, credentials, payment flows, deployment credentials, webhook integrity, or CI/CD integrity are prioritized.
+- lcv@lcv.dev
 
-## Payment Scope
+If GitHub private vulnerability reporting is enabled for this repository, that channel is also acceptable.
 
-`sponsor-motor` never stores card data. MercadoPago.js V2/Card Payment Brick captures card details through secure fields, the Worker receives only the transient token, creates Checkout Transparente orders through the official Mercado Pago SDK, validates webhooks, and stores minimal audit metadata.
+Please include:
 
-## Supported Versions
+- affected repository, component, route, package, workflow, or public surface;
+- affected version, release tag, commit SHA, or deployment URL when known;
+- impact and exploitability;
+- reproduction steps or a safe proof of concept, if available;
+- whether any credential, personal data, payment data, private editorial material, or operational secret may be involved.
 
-| Version                 | Supported                                          |
-| ----------------------- | -------------------------------------------------- |
-| Latest release / `main` | Yes                                                |
-| Older releases          | Security updates only when operationally practical |
+## Scope
+
+In scope: application code, Workers/Pages functions, package publication, GitHub Actions, dependency and supply-chain configuration, repository publication boundaries, security documentation, and public service configuration documented in this repository.
+
+Out of scope: social engineering, physical attacks, denial-of-service testing without prior written authorization, spam, automated noisy scanning, and reports that rely only on outdated browser or dependency versions without a concrete vulnerable path in this repository.
+
+## Coordinated disclosure
+
+LCV Ideas & Software will triage reports privately, request clarification when needed, and coordinate remediation before public disclosure. Public disclosure should wait until a fix or mitigation is available, unless there is an immediate user-safety reason to do otherwise.

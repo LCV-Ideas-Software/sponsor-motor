@@ -6,7 +6,9 @@ Cloudflare Worker dedicado para processar apoios/doações via Mercado Pago Chec
 
 Stable bootstrap. Current release: **APP v01.02.03**.
 
-## Histórico de versões
+## Change History
+
+The version history at a glance:
 
 | Versão          | Mudanças                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -25,13 +27,13 @@ Stable bootstrap. Current release: **APP v01.02.03**.
 | **`v01.00.03`** | **Hotfix SDK no Cloudflare Workers.** Adiciona compatibilidade `Headers.raw()` para a SDK oficial `mercadopago`, corrigindo criação de preferências no runtime Cloudflare com `nodejs_compat`.                                                                                                                                                                                                                           |
 | **`v01.00.02`** | **Mercado Pago SDK oficial.** Backend passou a criar/consultar pagamentos com o SDK oficial `mercadopago`, envia `items.category_id=services` e expõe `/api/config` com Public Key para integrações frontend.                                                                                                                                                                                                            |
 | **`v01.00.01`** | **DeepSeek CLI no catálogo de sponsor.** `deepseek-cli` passou a ser aceito em `/api/projects` e `/api/preferences`, habilitando o checkout central por `project=deepseek-cli`.                                                                                                                                                                                                                                          |
-| **`v01.00.00`** | **Mercado Pago sponsor backend.** Novo Worker dedicado com Checkout Pro preferences, webhook assinado, auditoria em tabelas `sponsor_*` no `bigdata_db`, Secrets Store bindings e página pública central em `https://www.lcv.dev/sponsor`.                                                                                                                                                                               |
+| **`v01.00.00`** | **Mercado Pago sponsor backend.** Novo Worker dedicado com Checkout Pro preferences, webhook assinado, auditoria em tabelas `sponsor_*` no `example_db`, Secrets Store bindings e página pública central em `https://www.lcv.dev/sponsor`.                                                                                                                                                                               |
 
 ## Arquitetura
 
 - Página pública: `https://www.lcv.dev/sponsor`.
 - API pública: `https://sponsor-motor.lcv.app.br`.
-- Banco: `bigdata_db`, com tabelas `sponsor_payments`, `sponsor_payment_events` e `sponsor_rate_limits`.
+- Banco: `example_db`, com tabelas `sponsor_payments`, `sponsor_payment_events` e `sponsor_rate_limits`.
 - Secrets Store: `mp-access-token`, `mercadopago-webhook-secret`, `mercadopago-public-key`.
 - Backend Mercado Pago: SDK oficial `mercadopago`, com `nodejs_compat` no Worker para suportar a biblioteca Node.
 - Frontend Mercado Pago: a página `https://www.lcv.dev/sponsor` carrega MercadoPago.js V2 e renderiza Card Payment Brick com Secure Fields.
@@ -91,7 +93,7 @@ Resumo dos pontos críticos preservados:
 
 ## Deploy
 
-O workflow `Deploy` injeta o `D1_DATABASE_ID` do GitHub Secret, aplica migrations remotas no `bigdata_db` e publica o Worker no Cloudflare.
+O workflow `Deploy` injeta o `D1_DATABASE_ID` do GitHub Secret, aplica migrations remotas no `example_db` e publica o Worker no Cloudflare.
 
 ## Segurança
 
@@ -114,3 +116,7 @@ O workflow `Deploy` injeta o `D1_DATABASE_ID` do GitHub Secret, aplica migration
 ## Licença
 
 AGPL-3.0-or-later.
+
+---
+
+<p align="center"><span style="font-size: 1.5em;"><strong>© LCV Ideas &amp; Software</strong></span><br><sub>LEONARDO CARDOZO VARGAS TECNOLOGIA DA INFORMACAO LTDA<br>Rua Pais Leme, 215 Conj 1713&nbsp;&nbsp;- Pinheiros<br>São Paulo - SP<br>CEP 05.424-150<br>CNPJ: 66.584.678/0001-77<br>IM 05.424-150</sub></p>

@@ -117,7 +117,7 @@
 
 - Enriquecido o payload da Orders API com `payer.last_name`, `payer.address`, `shipment.address` e `additional_info` antifraude aceito pela Orders API.
 - Adicionada opção explícita de Conta Mercado Pago em `/api/preferences` com `purpose=wallet_purchase`, sem interferir no fluxo principal por cartão/Orders.
-- Mantida postura zero-trust: dados pessoais completos seguem sem persistência em claro no `bigdata_db`; apenas hashes técnicos continuam gravados.
+- Mantida postura zero-trust: dados pessoais completos seguem sem persistência em claro no `example_db`; apenas hashes técnicos continuam gravados.
 
 ## [APP v01.01.02] - 2026-05-07
 
@@ -141,7 +141,7 @@
 - Migrado o fluxo principal de apoios para Checkout Transparente via Orders API (`/v1/orders`), mantendo `/api/preferences` apenas como compatibilidade legada.
 - Adicionada rota `POST /api/orders` para criar orders com cartão tokenizado pelo MercadoPago.js V2/Card Payment Brick.
 - Adicionados `items.category_id=services`, `processing_mode=automatic` e 3DS `on_fraud_risk`/`liability_shift=required` às orders.
-- Atualizado webhook para processar eventos `order` e registrar `Order ID`/`Payment ID` no `bigdata_db`.
+- Atualizado webhook para processar eventos `order` e registrar `Order ID`/`Payment ID` no `example_db`.
 
 ### Added
 
@@ -178,6 +178,6 @@
 
 - Criado `sponsor-motor`, Worker dedicado para apoios/doações via Mercado Pago Checkout Pro.
 - Adicionadas rotas de criação de preferência, status, health, catálogo de projetos e webhook Mercado Pago.
-- Adicionadas tabelas `sponsor_*` no `bigdata_db` para auditoria isolada sem criar D1 separado.
+- Adicionadas tabelas `sponsor_*` no `example_db` para auditoria isolada sem criar D1 separado.
 - Configurados bindings do Cloudflare Secrets Store para `mp-access-token`, `mercadopago-webhook-secret` e `mercadopago-public-key`.
 - Adicionados workflows de CI/deploy, Pages, auto-release, Dependabot e Dependabot automerge.

@@ -16,9 +16,7 @@
 
 Cloudflare Worker dedicado para processar apoios/doações via Mercado Pago Checkout Transparente com Orders API para a LCV Ideas & Software.
 
-## Status
-
-Stable bootstrap. Current release: **APP v01.02.04**.
+**Status.** Stable. Current release: **APP v01.02.04**. See [CHANGELOG.md](./CHANGELOG.md) for the full release history.
 
 ## Change History
 

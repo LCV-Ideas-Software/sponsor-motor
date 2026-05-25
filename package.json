@@ -35,11 +35,11 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.15",
-    "@cloudflare/workers-types": "^4.20260522.1",
+    "@cloudflare/workers-types": "^4.20260525.1",
     "prettier": "^3.8.3",
     "typescript": "^6.0.3",
     "vitest": "^4.1.7",
-    "wrangler": "^4.93.1"
+    "wrangler": "^4.94.0"
   },
   "engines": {
     "node": ">=22"

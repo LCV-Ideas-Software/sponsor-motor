@@ -1,5 +1,14 @@
 # Changelog
 
+## [APP v01.02.05] - 2026-06-19
+
+**Patch — security: raise transitive `ws` override floor to clear the OpenSSF Scorecard Vulnerabilities alert.** The org code-scanning surface flagged a high-severity advisory, GHSA-96hv-2xvq-fx4p (memory-exhaustion DoS in `ws` from tiny fragments and data chunks). `ws` is a transitive dependency pulled via `wrangler` → `miniflare`, which hard-pins the now-vulnerable patch; the existing `overrides` entry was holding it at the top of the affected range (8.20.1).
+
+### Alterado
+
+- `overrides.ws` raised to the advisory's first patched release of the line (8.21.0), clearing the advisory while staying within the same major. `npm audit --audit-level=high` is green again (0 vulnerabilities); the next Scorecard run clears the open code-scanning alert.
+- `APP_VERSION` (`src/env.ts`) + `package.json` + README/SECURITY metadata synced to v01.02.05.
+
 ## [APP v01.02.04] - 2026-05-15
 
 **Patch — 4-gate quality directive compliance (eslint + biome + prettier + cross-review).** Workspace directive 2026-05-15: every code change must pass eslint + biome + prettier + cross-review before Commit & Sync / tag / release / deploy / publish. (Note: sponsor-motor não tem eslint instalado; biome serves both lint and format roles via `format:check` + `lint` scripts. O `npm run check` aggregate já rodava biome + prettier; este ship adiciona explicit `npm run biome` step antes do check.)

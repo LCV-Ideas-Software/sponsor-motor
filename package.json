@@ -1,6 +1,6 @@
 {
   "name": "sponsor-motor",
-  "version": "1.2.4",
+  "version": "1.2.5",
   "private": true,
   "type": "module",
   "description": "Cloudflare Worker for LCV Ideas & Software sponsor payments via Mercado Pago Checkout Transparente Orders API.",
@@ -45,7 +45,7 @@
     "node": ">=22"
   },
   "overrides": {
-    "ws": "8.20.1",
+    "ws": "8.21.0",
     "uuid": "^11.0.0",
     "esbuild": "0.28.1"
   }

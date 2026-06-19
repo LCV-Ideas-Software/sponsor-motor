@@ -2,7 +2,7 @@
 
 ## Supported status
 
-Latest supported release: APP v01.02.04 / tag v01.02.04. The current main branch is also supported for security fixes until the next release is published.
+Latest supported release: APP v01.02.05 / tag v01.02.05. The current main branch is also supported for security fixes until the next release is published.
 
 ## Reporting a vulnerability
 

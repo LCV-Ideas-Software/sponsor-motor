@@ -16,7 +16,7 @@
 
 Cloudflare Worker dedicado para processar apoios/doações via Mercado Pago Checkout Transparente com Orders API para a LCV Ideas & Software.
 
-**Status.** Stable. Current release: **APP v01.02.04**. See [CHANGELOG.md](./CHANGELOG.md) for the full release history.
+**Status.** Stable. Current release: **APP v01.02.05**. See [CHANGELOG.md](./CHANGELOG.md) for the full release history.
 
 ## Change History
 
@@ -24,6 +24,7 @@ The version history at a glance:
 
 | Versão          | Mudanças                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **`v01.02.05`** | **Security patch.** Raised the transitive `ws` override floor to 8.21.0 to clear the high-severity memory-exhaustion DoS advisory (GHSA-96hv-2xvq-fx4p) flagged by the OpenSSF Scorecard Vulnerabilities check, and synchronized APP_VERSION/package metadata to v01.02.05.                                                                                                                                              |
 | **`v01.02.04`** | **4-gate quality directive compliance.** Added explicit Biome workflow steps before the existing aggregate checks, updated the Biome schema, applied cosmetic source formatting, and synchronized APP_VERSION/package metadata to v01.02.04.                                                                                                                                                                             |
 | **`v01.02.03`** | **Site sponsor card iteration.** `site/index.html` GitHub Sponsors iframe (caixa branca cross-origin) substituído por link card dark navy com ❤ pink + meta cyan + seta animada; card movido para DEPOIS dos botões (lcv.dev/sponsor primário, GitHub Sponsors alternativa). Companion ship Phase 3 (12 repos).                                                                                                          |
 | **`v01.02.02`** | **Identidade visual da org.** Reskin da página `site/index.html` (GitHub Pages) pra nova paleta dark-first navy/cyan da LCV (`#050b18`/`#38bdf8`/`#34d399`, gradientes, glow). Companion ship coordenado com `cross-review-v1` 1.12.9, `cross-review-v2` v02.18.07, `deepseek-cli` 0.3.1, `grok-cli` 1.6.2 e `.github-org/site` (org root + /sponsor). Sem mudança no Worker runtime; apenas a página GitHub Pages muda. |

@@ -101,11 +101,11 @@ describe('createMercadoPagoOrder', () => {
           'payer.is_first_purchase_online': true,
         });
         expect(body.items[0]?.category_id).toBe('services');
-        expect(body.config.online.transaction_security).toEqual({
+        expect(body.config?.online).toBeUndefined();
+        expect(body.transactions.payments[0]?.payment_method.transaction_security).toEqual({
           validation: 'on_fraud_risk',
           liability_shift: 'required',
         });
-        expect(body.transactions.payments[0]?.payment_method.transaction_security).toBeUndefined();
         return {
           id: 'ORD-1',
           status: 'processed',

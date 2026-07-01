@@ -251,6 +251,10 @@ export async function createMercadoPagoOrder(request: OrderRequest): Promise<Ord
     token: request.token,
     installments: request.installments,
     statement_descriptor: 'LCV IDEAS',
+    transaction_security: {
+      validation: request.threeDsValidation || 'on_fraud_risk',
+      liability_shift: 'required' as const,
+    },
   };
 
   const payer = {
@@ -288,14 +292,6 @@ export async function createMercadoPagoOrder(request: OrderRequest): Promise<Ord
       ...(request.payerLastPurchase ? { 'payer.last_purchase': request.payerLastPurchase } : {}),
     },
     items: [sponsorItem(request.projectSlug, amount)],
-    config: {
-      online: {
-        transaction_security: {
-          validation: request.threeDsValidation || 'on_fraud_risk',
-          liability_shift: 'required' as const,
-        },
-      },
-    },
     transactions: {
       payments: [
         {
@@ -306,14 +302,6 @@ export async function createMercadoPagoOrder(request: OrderRequest): Promise<Ord
     },
   } satisfies CreateOrderRequest & {
     shipment: { address: MercadoPagoAddress };
-    config: {
-      online: {
-        transaction_security: {
-          validation: ThreeDsValidation;
-          liability_shift: 'required';
-        };
-      };
-    };
   };
 
   let data: MercadoPagoOrderResponse | undefined;

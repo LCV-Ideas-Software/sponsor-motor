@@ -7,7 +7,11 @@ set -euo pipefail
 : "${EXPECTED_VERSION:?EXPECTED_VERSION is required}"
 : "${CLOUDFLARE_API_TOKEN:?CLOUDFLARE_API_TOKEN is required}"
 
+declare +x cloudflare_api_token="$CLOUDFLARE_API_TOKEN"
+unset CLOUDFLARE_API_TOKEN
+
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+JQ_BIN="${JQ_BIN:-jq}"
 CURL_BIN="${CURL_BIN:-curl}"
 SLEEP_BIN="${SLEEP_BIN:-sleep}"
 NODE_BIN="${NODE_BIN:-node}"
@@ -41,7 +45,8 @@ cleanup() {
 trap cleanup EXIT
 
 cp "$script_dir/production-health-probe.mjs" "$probe_dir/probe.mjs"
-jq -n \
+# shellcheck disable=SC2016 # $worker_name and $version_id are jq variables.
+"$JQ_BIN" -n \
   --arg worker_name "$WORKER_NAME" \
   --arg version_id "$EXPECTED_WORKER_VERSION_ID" \
   '{
@@ -83,7 +88,7 @@ done
 dev_log="$probe_dir/wrangler-dev.log"
 (
   cd "$probe_dir"
-  WRANGLER_SEND_METRICS=false CI=true \
+  CLOUDFLARE_API_TOKEN="$cloudflare_api_token" WRANGLER_SEND_METRICS=false CI=true \
     "$WRANGLER_BIN" dev \
       --config "$probe_dir/wrangler.json" \
       --ip 127.0.0.1 \
@@ -121,14 +126,15 @@ for ((attempt = 1; attempt <= SERVICE_PROBE_ATTEMPTS; attempt += 1)); do
   set -e
 
   if [ "$curl_status" -eq 0 ] && [ "$http_code" = '200' ]; then
-    if jq -e --arg version "$EXPECTED_VERSION" \
+    # shellcheck disable=SC2016 # $version is a jq variable, not a shell variable.
+    if "$JQ_BIN" -e --arg version "$EXPECTED_VERSION" \
       '.ok == true and .service == "sponsor-motor" and .version == $version' \
       "$body_file" > /dev/null 2>&1; then
       echo "Production health check passed via authenticated service binding for $EXPECTED_VERSION."
       exit 0
     fi
 
-    actual_version="$(jq -r '.version // "missing"' "$body_file" 2>/dev/null || printf 'invalid-json')"
+    actual_version="$("$JQ_BIN" -r '.version // "missing"' "$body_file" 2>/dev/null || printf 'invalid-json')"
     last_failure="HTTP 200 returned an unexpected health document (expected=$EXPECTED_VERSION actual=$actual_version)"
   elif [ "$curl_status" -ne 0 ]; then
     last_failure="local probe transport failure (exit=$curl_status)"
@@ -144,7 +150,7 @@ done
 echo "::error::Authenticated service binding health probe failed: $last_failure." >&2
 echo "::group::Wrangler local probe diagnostics" >&2
 while IFS= read -r line; do
-  if [ -n "${CLOUDFLARE_API_TOKEN:-}" ] && [[ "$line" == *"$CLOUDFLARE_API_TOKEN"* ]]; then
+  if [ -n "$cloudflare_api_token" ] && [[ "$line" == *"$cloudflare_api_token"* ]]; then
     echo '[redacted token-bearing Wrangler log line]' >&2
   else
     echo "$line" >&2

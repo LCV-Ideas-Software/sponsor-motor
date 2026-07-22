@@ -167,8 +167,8 @@ transport_error_case() {
 }
 
 expect_success 'accepts the exact healthy JSON' 'Production health check passed for APP v01.02.05.' healthy_case
-expect_success 'accepts only an authenticated Cloudflare challenge after exact deployment proof' \
-  'Cloudflare challenged every production probe; exact Worker revision expected-sha remains verified at 100% traffic.' \
+expect_failure 'fails closed when every probe is intercepted by a Cloudflare challenge' \
+  'Production health is unverified because every probe was intercepted by a Cloudflare Challenge Page' \
   challenge_case
 expect_failure 'rejects an application 403 without challenge evidence' \
   'Production health verification failed after 2 attempts' forbidden_case

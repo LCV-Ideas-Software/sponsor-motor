@@ -116,8 +116,8 @@ for ((attempt = 1; attempt <= HEALTH_ATTEMPTS; attempt += 1)); do
 done
 
 if [ "$challenge_count" -eq "$HEALTH_ATTEMPTS" ]; then
-  echo "::warning::Cloudflare challenged every production probe; exact Worker revision $EXPECTED_REVISION remains verified at 100% traffic."
-  exit 0
+  echo "::error::Production health is unverified because every probe was intercepted by a Cloudflare Challenge Page; exact Worker revision $EXPECTED_REVISION is deployed at 100% traffic, but deployment metadata alone does not prove application health." >&2
+  exit 1
 fi
 
 echo "::error::Production health verification failed after $HEALTH_ATTEMPTS attempts: $last_failure." >&2

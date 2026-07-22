@@ -6,10 +6,13 @@ set -euo pipefail
 : "${EXPECTED_VERSION:?EXPECTED_VERSION is required}"
 : "${HEALTH_URL:?HEALTH_URL is required}"
 
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORKER_NAME="${WORKER_NAME:-sponsor-motor}"
 WRANGLER_CONFIG="${WRANGLER_CONFIG:-wrangler.json}"
 CURL_BIN="${CURL_BIN:-curl}"
 SLEEP_BIN="${SLEEP_BIN:-sleep}"
+SERVICE_PROBE_RUNNER="${SERVICE_PROBE_RUNNER:-bash}"
+SERVICE_PROBE_SCRIPT="${SERVICE_PROBE_SCRIPT:-$script_dir/probe-production-health-via-service-binding.sh}"
 HEALTH_ATTEMPTS="${HEALTH_ATTEMPTS:-6}"
 HEALTH_RETRY_DELAY_SECONDS="${HEALTH_RETRY_DELAY_SECONDS:-5}"
 
@@ -30,12 +33,13 @@ deployment_json="$(
 )"
 
 if ! jq -e \
-  '.versions | length == 1 and .[0].percentage == 100 and (.[0].version_id | type == "string" and length > 0)' \
+  '(.id | type == "string" and length > 0) and (.versions | length == 1 and .[0].percentage == 100 and (.[0].version_id | type == "string" and length > 0))' \
   <<<"$deployment_json" > /dev/null; then
   echo "::error::Expected exactly one Worker version at 100% production traffic." >&2
   exit 1
 fi
 
+deployment_id="$(jq -er '.id' <<<"$deployment_json")"
 version_id="$(jq -er '.versions[0].version_id' <<<"$deployment_json")"
 version_json="$(
   "$WRANGLER_BIN" versions view "$version_id" \
@@ -116,7 +120,34 @@ for ((attempt = 1; attempt <= HEALTH_ATTEMPTS; attempt += 1)); do
 done
 
 if [ "$challenge_count" -eq "$HEALTH_ATTEMPTS" ]; then
-  echo "::error::Production health is unverified because every probe was intercepted by a Cloudflare Challenge Page; exact Worker revision $EXPECTED_REVISION is deployed at 100% traffic, but deployment metadata alone does not prove application health." >&2
+  echo "::notice::Every public health probe was challenged; attempting an authenticated local Worker probe through a remote service binding."
+  if WRANGLER_BIN="$WRANGLER_BIN" \
+    WORKER_NAME="$WORKER_NAME" \
+    EXPECTED_WORKER_VERSION_ID="$version_id" \
+    EXPECTED_VERSION="$EXPECTED_VERSION" \
+    CURL_BIN="$CURL_BIN" \
+    SLEEP_BIN="$SLEEP_BIN" \
+    "$SERVICE_PROBE_RUNNER" "$SERVICE_PROBE_SCRIPT"; then
+    final_deployment_json="$(
+      "$WRANGLER_BIN" deployments status \
+        --name "$WORKER_NAME" \
+        --config "$WRANGLER_CONFIG" \
+        --json
+    )"
+    if ! jq -e \
+      --arg deployment_id "$deployment_id" \
+      --arg version_id "$version_id" \
+      '.id == $deployment_id and (.versions | length == 1 and .[0].percentage == 100 and .[0].version_id == $version_id)' \
+      <<<"$final_deployment_json" > /dev/null; then
+      echo "::error::The active Worker deployment changed while the authenticated health probe was running." >&2
+      exit 1
+    fi
+
+    echo "Re-verified unchanged deployment $deployment_id after the authenticated service binding probe."
+    exit 0
+  fi
+
+  echo "::error::Production health is unverified because every public probe was intercepted by a Cloudflare Challenge Page and the authenticated service binding probe failed; exact Worker revision $EXPECTED_REVISION remains deployed at 100% traffic, but deployment metadata alone does not prove application health." >&2
   exit 1
 fi
 

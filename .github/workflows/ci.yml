@@ -29,6 +29,8 @@ jobs:
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: npm run biome
       - run: npm run check
+      - name: Production health verifier regression tests
+        run: bash scripts/verify-production-health.test.sh
     timeout-minutes: 30
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

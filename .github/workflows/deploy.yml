@@ -8,19 +8,32 @@ env:
   NODE_OPTIONS: "--no-deprecation"
 concurrency:
   group: deploy-main
-  cancel-in-progress: true
+  cancel-in-progress: false
 jobs:
   deploy:
+    name: Validate, migrate, and deploy production
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    environment: cloudflare-production
+    permissions: write-all
     steps:
+      - name: Require the production branch
+        env:
+          DEPLOY_REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+          if [ "$DEPLOY_REF" != "refs/heads/main" ]; then
+            echo "::error::Production deploys are restricted to refs/heads/main (received: $DEPLOY_REF)." >&2
+            exit 1
+          fi
+
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
         with:
           egress-policy: audit
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
@@ -31,31 +44,222 @@ jobs:
         run: npm run biome
       - name: Verify
         run: npm run check
-      - name: Inject D1 database_id from secret
+
+      - name: Install and verify latest Wrangler
+        id: wrangler
+        shell: bash
+        # prettier-ignore
+        run: | # zizmor: ignore[adhoc-packages] Wrangler latest is an explicit organization policy; signatures are verified below.
+          set -euo pipefail
+          wrangler_prefix="$RUNNER_TEMP/wrangler-latest"
+          npm install --prefix "$wrangler_prefix" --save-exact --ignore-scripts --no-audit --no-fund --registry=https://registry.npmjs.org/ wrangler@latest
+          npm audit signatures --prefix "$wrangler_prefix" --registry=https://registry.npmjs.org/
+
+          WRANGLER_BIN="$wrangler_prefix/node_modules/.bin/wrangler"
+          if [ ! -x "$WRANGLER_BIN" ]; then
+            echo "::error::The isolated Wrangler executable was not created." >&2
+            exit 1
+          fi
+          WRANGLER_VERSION="$("$WRANGLER_BIN" --version)"
+          if ! [[ "$WRANGLER_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Unexpected Wrangler version: $WRANGLER_VERSION" >&2
+            exit 1
+          fi
+
+          printf 'Resolved Wrangler version: %s\n' "$WRANGLER_VERSION"
+          printf 'bin=%s\nversion=%s\n' "$WRANGLER_BIN" "$WRANGLER_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Validate the production D1 target
         run: |
-          if [ -z "${D1_DATABASE_ID:-}" ]; then
+          set -euo pipefail
+          config_file="wrangler.json"
+          expected_binding="BIGDATA_DB"
+          expected_name="bigdata_db"
+          placeholder_id="00000000-0000-0000-0000-000000000000"
+
+          if [ -z "${CLOUDFLARE_DATABASE_ID:-}" ]; then
             echo "::error::D1_DATABASE_ID secret is not set" >&2
             exit 1
           fi
-          jq --arg id "$D1_DATABASE_ID" '.d1_databases[0].database_id = $id' wrangler.json > wrangler.json.tmp
-          mv wrangler.json.tmp wrangler.json
-          grep -q "$D1_DATABASE_ID" wrangler.json || { echo "::error::Substitution failed" >&2; exit 1; }
-          if grep -q "00000000-0000-0000-0000-000000000000" wrangler.json; then
-            echo "::error::Placeholder still present" >&2
+          if ! [[ "$CLOUDFLARE_DATABASE_ID" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then
+            echo "::error::D1_DATABASE_ID is not a valid UUID" >&2
             exit 1
           fi
+
+          binding_count="$(
+            jq --arg binding "$expected_binding" \
+              '[.d1_databases[]? | select(.binding == $binding)] | length' \
+              "$config_file"
+          )"
+          if [ "$binding_count" != "1" ]; then
+            echo "::error::Expected exactly one $expected_binding binding in $config_file" >&2
+            exit 1
+          fi
+
+          config_name="$(
+            jq -er --arg binding "$expected_binding" \
+              '.d1_databases[] | select(.binding == $binding) | .database_name' \
+              "$config_file"
+          )"
+          config_id="$(
+            jq -er --arg binding "$expected_binding" \
+              '.d1_databases[] | select(.binding == $binding) | .database_id' \
+              "$config_file"
+          )"
+          if [ "$config_name" != "$expected_name" ]; then
+            echo "::error::Unexpected D1 database_name in $config_file: $config_name" >&2
+            exit 1
+          fi
+          if [ "$config_id" != "$placeholder_id" ] && [ "$config_id" != "$CLOUDFLARE_DATABASE_ID" ]; then
+            echo "::error::The D1 database_id in $config_file does not match D1_DATABASE_ID" >&2
+            exit 1
+          fi
+
+          jq --arg binding "$expected_binding" \
+            --arg name "$expected_name" \
+            --arg id "$CLOUDFLARE_DATABASE_ID" \
+            '(.d1_databases[] | select(.binding == $binding and .database_name == $name) | .database_id) = $id' \
+            "$config_file" > "$config_file.tmp"
+          mv "$config_file.tmp" "$config_file"
+
+          injected_name="$(
+            jq -er --arg binding "$expected_binding" \
+              '.d1_databases[] | select(.binding == $binding) | .database_name' \
+              "$config_file"
+          )"
+          injected_id="$(
+            jq -er --arg binding "$expected_binding" \
+              '.d1_databases[] | select(.binding == $binding) | .database_id' \
+              "$config_file"
+          )"
+          if [ "$injected_name" != "$expected_name" ] || [ "$injected_id" != "$CLOUDFLARE_DATABASE_ID" ]; then
+            echo "::error::Failed to construct the exact production D1 binding" >&2
+            exit 1
+          fi
+
+          remote_info="$("$WRANGLER_BIN" d1 info "$expected_name" --config "$config_file" --json)"
+          remote_name="$(jq -er '.name' <<<"$remote_info")"
+          remote_id="$(jq -er '.uuid' <<<"$remote_info")"
+          if [ "$remote_name" != "$expected_name" ] || [ "$remote_id" != "$CLOUDFLARE_DATABASE_ID" ]; then
+            echo "::error::Remote D1 identity does not exactly match wrangler.json and D1_DATABASE_ID" >&2
+            exit 1
+          fi
+
+          printf 'D1_DATABASE_NAME=%s\n' "$expected_name" >> "$GITHUB_ENV"
+          echo "Validated the exact production D1 database name and ID."
         env:
-          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
-      - name: Apply D1 migrations
-        run: npx --registry=https://registry.npmjs.org/ --no-install wrangler d1 migrations apply bigdata_db --remote
-        env:
+          WRANGLER_BIN: ${{ steps.wrangler.outputs.bin }}
+          CLOUDFLARE_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      - name: Deploy Worker
-        run: npx --registry=https://registry.npmjs.org/ --no-install wrangler deploy
+
+      - name: Capture the pre-migration D1 Time Travel bookmark
+        run: |
+          set -euo pipefail
+          bookmark_info="$(
+            "$WRANGLER_BIN" d1 time-travel info "$D1_DATABASE_NAME" \
+              --config wrangler.json \
+              --json
+          )"
+          bookmark="$(jq -er '.bookmark' <<<"$bookmark_info")"
+          if ! [[ "$bookmark" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{8}-[0-9a-fA-F]{8}-[0-9a-fA-F]{32}$ ]]; then
+            echo "::error::Wrangler returned an invalid D1 Time Travel bookmark" >&2
+            exit 1
+          fi
+
+          {
+            echo "### D1 pre-migration recovery point"
+            echo
+            echo "- Database: \`$D1_DATABASE_NAME\`"
+            echo "- Time Travel bookmark: \`$bookmark\`"
+            echo "- Restoration is intentionally manual and must be explicitly authorized."
+            echo
+            echo "Manual recovery recipe (not executed by this workflow):"
+            echo "1. Authenticate Wrangler for the production account."
+            echo "2. Set \`D1_DATABASE_ID\` to the same exact UUID validated by this run (the repository \`D1_DATABASE_ID\` secret)."
+            echo "3. Run the recipe below; it constructs and verifies a temporary config before the explicit restore command."
+            echo '```sh'
+            echo "D1_DATABASE_ID='<EXACT-VALIDATED-D1-UUID>'"
+            echo 'if ! printf %s "$D1_DATABASE_ID" | grep -Eq '"'"'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'"'"'; then exit 1; fi'
+            echo 'recovery_config="$(mktemp "${TMPDIR:-/tmp}/sponsor-d1-recovery.XXXXXX.json")"'
+            echo 'trap '"'"'rm -f "$recovery_config"'"'"' EXIT'
+            echo 'jq --arg binding BIGDATA_DB --arg name bigdata_db --arg id "$D1_DATABASE_ID" '"'"'(.d1_databases[] | select(.binding == $binding and .database_name == $name) | .database_id) = $id'"'"' wrangler.json > "$recovery_config"'
+            echo 'jq -e --arg id "$D1_DATABASE_ID" '"'"'[.d1_databases[] | select(.binding == "BIGDATA_DB" and .database_name == "bigdata_db" and .database_id == $id)] | length == 1'"'"' "$recovery_config" >/dev/null'
+            echo "npx --yes --registry=https://registry.npmjs.org/ wrangler@latest d1 time-travel restore $D1_DATABASE_NAME --bookmark=$bookmark --config \"\$recovery_config\""
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
         env:
+          WRANGLER_BIN: ${{ steps.wrangler.outputs.bin }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: List pending D1 migrations
+        run: |
+          set -euo pipefail
+          "$WRANGLER_BIN" d1 migrations list "$D1_DATABASE_NAME" \
+            --config wrangler.json \
+            --remote
+        env:
+          WRANGLER_BIN: ${{ steps.wrangler.outputs.bin }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Apply D1 migrations and deploy the exact main revision
+        run: |
+          set -euo pipefail
+
+          # This is the last read-only gate before the production transaction.
+          # After the first migration starts, this job deliberately completes the
+          # matching Worker deploy so a newer main cannot leave the schema ahead
+          # of the application. The concurrency group serializes that next run.
+          main_sha="$(
+            gh api --method GET \
+              "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" \
+              --jq '.object.sha'
+          )"
+          if [ "$main_sha" != "$GITHUB_SHA" ]; then
+            echo "::error::Remote main moved before the production transaction: expected $GITHUB_SHA, found $main_sha." >&2
+            exit 1
+          fi
+
+          "$WRANGLER_BIN" d1 migrations apply "$D1_DATABASE_NAME" \
+            --config wrangler.json \
+            --remote
+          "$WRANGLER_BIN" deploy --strict --config wrangler.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WRANGLER_BIN: ${{ steps.wrangler.outputs.bin }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Verify production health
+        run: |
+          set -euo pipefail
+          mapfile -t expected_versions < <(
+            sed -nE "s/^export const APP_VERSION = ['\"]([^'\"]+)['\"];$/\1/p" src/env.ts
+          )
+          if [ "${#expected_versions[@]}" -ne 1 ] || [ -z "${expected_versions[0]}" ]; then
+            echo "::error::Could not resolve exactly one APP_VERSION from src/env.ts" >&2
+            exit 1
+          fi
+          expected_version="${expected_versions[0]}"
+          response="$(
+            curl --fail --silent --show-error \
+              --retry 5 \
+              --retry-all-errors \
+              --retry-delay 5 \
+              --connect-timeout 10 \
+              --max-time 20 \
+              --max-filesize 65536 \
+              https://sponsor-motor.lcv.app.br/api/health
+          )"
+          if ! jq -e --arg version "$expected_version" \
+            '.ok == true and .service == "sponsor-motor" and .version == $version' \
+            <<<"$response" > /dev/null; then
+            actual_version="$(jq -r '.version // "missing"' <<<"$response" 2>/dev/null || printf 'invalid-json')"
+            echo "::error::The production health endpoint did not report the deployed version (expected=$expected_version actual=$actual_version)." >&2
+            exit 1
+          fi
+          echo "Production health check passed for $expected_version."
     timeout-minutes: 30
-permissions:
-  contents: read
+permissions: write-all

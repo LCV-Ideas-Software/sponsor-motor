@@ -5,10 +5,15 @@ set -euo pipefail
 : "${EXPECTED_REVISION:?EXPECTED_REVISION is required}"
 : "${EXPECTED_VERSION:?EXPECTED_VERSION is required}"
 : "${HEALTH_URL:?HEALTH_URL is required}"
+: "${CLOUDFLARE_API_TOKEN:?CLOUDFLARE_API_TOKEN is required}"
+
+declare +x cloudflare_api_token="$CLOUDFLARE_API_TOKEN"
+unset CLOUDFLARE_API_TOKEN
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORKER_NAME="${WORKER_NAME:-sponsor-motor}"
 WRANGLER_CONFIG="${WRANGLER_CONFIG:-wrangler.json}"
+JQ_BIN="${JQ_BIN:-jq}"
 CURL_BIN="${CURL_BIN:-curl}"
 SLEEP_BIN="${SLEEP_BIN:-sleep}"
 SERVICE_PROBE_RUNNER="${SERVICE_PROBE_RUNNER:-bash}"
@@ -26,30 +31,30 @@ if ! [[ "$HEALTH_RETRY_DELAY_SECONDS" =~ ^[0-9]+$ ]]; then
 fi
 
 deployment_json="$(
-  "$WRANGLER_BIN" deployments status \
+  CLOUDFLARE_API_TOKEN="$cloudflare_api_token" "$WRANGLER_BIN" deployments status \
     --name "$WORKER_NAME" \
     --config "$WRANGLER_CONFIG" \
     --json
 )"
 
-if ! jq -e \
+if ! "$JQ_BIN" -e \
   '(.id | type == "string" and length > 0) and (.versions | length == 1 and .[0].percentage == 100 and (.[0].version_id | type == "string" and length > 0))' \
   <<<"$deployment_json" > /dev/null; then
   echo "::error::Expected exactly one Worker version at 100% production traffic." >&2
   exit 1
 fi
 
-deployment_id="$(jq -er '.id' <<<"$deployment_json")"
-version_id="$(jq -er '.versions[0].version_id' <<<"$deployment_json")"
+deployment_id="$("$JQ_BIN" -er '.id' <<<"$deployment_json")"
+version_id="$("$JQ_BIN" -er '.versions[0].version_id' <<<"$deployment_json")"
 version_json="$(
-  "$WRANGLER_BIN" versions view "$version_id" \
+  CLOUDFLARE_API_TOKEN="$cloudflare_api_token" "$WRANGLER_BIN" versions view "$version_id" \
     --name "$WORKER_NAME" \
     --config "$WRANGLER_CONFIG" \
     --json
 )"
 
-deployed_tag="$(jq -er '.annotations["workers/tag"]' <<<"$version_json")"
-reported_version_id="$(jq -er '.id' <<<"$version_json")"
+deployed_tag="$("$JQ_BIN" -er '.annotations["workers/tag"]' <<<"$version_json")"
+reported_version_id="$("$JQ_BIN" -er '.id' <<<"$version_json")"
 if [ "$reported_version_id" != "$version_id" ]; then
   echo "::error::Wrangler returned metadata for a different Worker version." >&2
   exit 1
@@ -89,14 +94,15 @@ for ((attempt = 1; attempt <= HEALTH_ATTEMPTS; attempt += 1)); do
   set -e
 
   if [ "$curl_status" -eq 0 ] && [ "$http_code" = '200' ]; then
-    if jq -e --arg version "$EXPECTED_VERSION" \
+    # shellcheck disable=SC2016 # $version is a jq variable, not a shell variable.
+    if "$JQ_BIN" -e --arg version "$EXPECTED_VERSION" \
       '.ok == true and .service == "sponsor-motor" and .version == $version' \
       "$body_file" > /dev/null 2>&1; then
       echo "Production health check passed for $EXPECTED_VERSION."
       exit 0
     fi
 
-    actual_version="$(jq -r '.version // "missing"' "$body_file" 2>/dev/null || printf 'invalid-json')"
+    actual_version="$("$JQ_BIN" -r '.version // "missing"' "$body_file" 2>/dev/null || printf 'invalid-json')"
     last_failure="HTTP 200 returned an unexpected health document (expected=$EXPECTED_VERSION actual=$actual_version)"
   elif [ "$curl_status" -eq 0 ] \
     && tr -d '\r' < "$headers_file" | grep -Eiq '^cf-mitigated:[[:space:]]*challenge[[:space:]]*$' \
@@ -121,7 +127,8 @@ done
 
 if [ "$challenge_count" -eq "$HEALTH_ATTEMPTS" ]; then
   echo "::notice::Every public health probe was challenged; attempting an authenticated local Worker probe through a remote service binding."
-  if WRANGLER_BIN="$WRANGLER_BIN" \
+  if CLOUDFLARE_API_TOKEN="$cloudflare_api_token" \
+    WRANGLER_BIN="$WRANGLER_BIN" \
     WORKER_NAME="$WORKER_NAME" \
     EXPECTED_WORKER_VERSION_ID="$version_id" \
     EXPECTED_VERSION="$EXPECTED_VERSION" \
@@ -129,12 +136,13 @@ if [ "$challenge_count" -eq "$HEALTH_ATTEMPTS" ]; then
     SLEEP_BIN="$SLEEP_BIN" \
     "$SERVICE_PROBE_RUNNER" "$SERVICE_PROBE_SCRIPT"; then
     final_deployment_json="$(
-      "$WRANGLER_BIN" deployments status \
+      CLOUDFLARE_API_TOKEN="$cloudflare_api_token" "$WRANGLER_BIN" deployments status \
         --name "$WORKER_NAME" \
         --config "$WRANGLER_CONFIG" \
         --json
     )"
-    if ! jq -e \
+    # shellcheck disable=SC2016 # $deployment_id and $version_id are jq variables.
+    if ! "$JQ_BIN" -e \
       --arg deployment_id "$deployment_id" \
       --arg version_id "$version_id" \
       '.id == $deployment_id and (.versions | length == 1 and .[0].percentage == 100 and .[0].version_id == $version_id)' \

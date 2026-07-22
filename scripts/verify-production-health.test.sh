@@ -6,6 +6,11 @@ verifier="$repo_root/scripts/verify-production-health.sh"
 failures=0
 
 mock_wrangler() {
+  if [ "${CLOUDFLARE_API_TOKEN:-}" != 'scope-test-token' ]; then
+    printf 'mock Wrangler did not receive the scoped Cloudflare token\n' >&2
+    return 97
+  fi
+
   if [ "$1 $2" = "deployments status" ]; then
     local deployment_id='e940153a-2a06-4f74-b852-efc2d8107f44'
     if [ "${MOCK_DEPLOY_CHANGE_AFTER_PROBE:-false}" = 'true' ]; then
@@ -39,6 +44,11 @@ mock_wrangler() {
 mock_curl() {
   local headers_file=''
   local body_file=''
+
+  if [ -n "${CLOUDFLARE_API_TOKEN+x}" ]; then
+    printf 'CLOUDFLARE_API_TOKEN leaked into mock curl\n' >&2
+    return 97
+  fi
 
   while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -87,10 +97,19 @@ mock_curl() {
 }
 
 mock_sleep() {
+  if [ -n "${CLOUDFLARE_API_TOKEN+x}" ]; then
+    printf 'CLOUDFLARE_API_TOKEN leaked into mock sleep\n' >&2
+    return 97
+  fi
   return 0
 }
 
 mock_service_probe() {
+  if [ "${CLOUDFLARE_API_TOKEN:-}" != 'scope-test-token' ]; then
+    printf 'mock service probe did not receive the explicitly scoped Cloudflare token\n' >&2
+    return 97
+  fi
+
   case "${MOCK_SERVICE_PROBE_MODE:-healthy}" in
     healthy)
       printf 'Production health check passed via authenticated service binding for APP v01.02.05.\n'
@@ -106,7 +125,15 @@ mock_service_probe() {
   esac
 }
 
-export -f mock_wrangler mock_curl mock_sleep mock_service_probe
+mock_jq() {
+  if [ -n "${CLOUDFLARE_API_TOKEN+x}" ]; then
+    printf 'CLOUDFLARE_API_TOKEN leaked into mock jq\n' >&2
+    return 97
+  fi
+  command jq "$@"
+}
+
+export -f mock_wrangler mock_curl mock_sleep mock_service_probe mock_jq
 
 run_verifier() {
   MOCK_DEPLOY_TAG="${MOCK_DEPLOY_TAG:-expected-sha}" \
@@ -114,7 +141,9 @@ run_verifier() {
   MOCK_HTTP_MODE="${MOCK_HTTP_MODE:-healthy}" \
   MOCK_HTTP_VERSION="${MOCK_HTTP_VERSION:-APP v01.02.05}" \
   MOCK_SERVICE_PROBE_MODE="${MOCK_SERVICE_PROBE_MODE:-healthy}" \
+  CLOUDFLARE_API_TOKEN=scope-test-token \
   WRANGLER_BIN=mock_wrangler \
+  JQ_BIN=mock_jq \
   CURL_BIN=mock_curl \
   SLEEP_BIN=mock_sleep \
   SERVICE_PROBE_RUNNER=mock_service_probe \
@@ -237,6 +266,9 @@ expect_failure 'rejects transport failures instead of treating them as challenge
   'Production health verification failed after 2 attempts' transport_error_case
 
 if ! node "$repo_root/scripts/production-health-probe.test.mjs"; then
+  failures=$((failures + 1))
+fi
+if ! bash "$repo_root/scripts/probe-production-health-via-service-binding.test.sh"; then
   failures=$((failures + 1))
 fi
 

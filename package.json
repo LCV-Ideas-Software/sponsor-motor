@@ -1,6 +1,6 @@
 {
   "name": "sponsor-motor",
-  "version": "1.2.5",
+  "version": "1.2.6",
   "private": true,
   "type": "module",
   "description": "Cloudflare Worker for LCV Ideas & Software sponsor payments via Mercado Pago Checkout Transparente Orders API.",
@@ -29,7 +29,7 @@
     "db:migrate:remote": "wrangler d1 migrations apply bigdata_db --remote"
   },
   "dependencies": {
-    "hono": "^4.12.32",
+    "hono": "^4.12.34",
     "mercadopago": "3.2.1",
     "zod": "^4.4.3"
   },
@@ -39,12 +39,15 @@
     "prettier": "^3.9.6",
     "typescript": "^7.0.2",
     "vitest": "^4.1.10",
-    "wrangler": "^4.116.0"
+    "wrangler": "^4.118.0"
   },
   "engines": {
     "node": ">=22"
   },
   "overrides": {
+    "miniflare": {
+      "undici": "7.29.0"
+    },
     "ws": "8.21.0",
     "uuid": "^11.0.0",
     "esbuild": "0.28.1",

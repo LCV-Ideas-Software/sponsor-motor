@@ -16,7 +16,7 @@
 
 Cloudflare Worker dedicado para processar apoios/doações via Mercado Pago Checkout Transparente com Orders API para a LCV Ideas & Software.
 
-**Status.** Stable. Current release: **APP v01.02.05**. See [CHANGELOG.md](./CHANGELOG.md) for the full release history.
+**Status.** Stable. Prepared release: **APP v01.02.06**. See [CHANGELOG.md](./CHANGELOG.md) for the full release history.
 
 ## Change History
 
@@ -24,6 +24,7 @@ The version history at a glance:
 
 | Versão          | Mudanças                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **`v01.02.06`** | **Security and Cloudflare toolchain patch.** Updates Hono to 4.12.34 for GHSA-8j4g-w8fx-2239, moves Wrangler to the current-compatible 4.118 line and scopes Undici 7.29.0 to Miniflare.                                                                                                                                                                                                                                 |
 | **`v01.02.05`** | **Security patch.** Raised the transitive `ws` override floor to 8.21.0 to clear the high-severity memory-exhaustion DoS advisory (GHSA-96hv-2xvq-fx4p) flagged by the OpenSSF Scorecard Vulnerabilities check, and synchronized APP_VERSION/package metadata to v01.02.05.                                                                                                                                              |
 | **`v01.02.04`** | **4-gate quality directive compliance.** Added explicit Biome workflow steps before the existing aggregate checks, updated the Biome schema, applied cosmetic source formatting, and synchronized APP_VERSION/package metadata to v01.02.04.                                                                                                                                                                             |
 | **`v01.02.03`** | **Site sponsor card iteration.** `site/index.html` GitHub Sponsors iframe (caixa branca cross-origin) substituído por link card dark navy com ❤ pink + meta cyan + seta animada; card movido para DEPOIS dos botões (lcv.dev/sponsor primário, GitHub Sponsors alternativa). Companion ship Phase 3 (12 repos).                                                                                                          |

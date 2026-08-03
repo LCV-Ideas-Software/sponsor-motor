@@ -2,7 +2,10 @@
 
 ## Supported status
 
-Latest supported release: APP v01.02.05 / tag v01.02.05. The current main branch is also supported for security fixes until the next release is published.
+Latest supported source/release target: APP v01.02.06 / tag v01.02.06. The
+current main branch is also supported for security fixes until the release is
+published. This patch resolves GHSA-8j4g-w8fx-2239 with Hono 4.12.34 and keeps
+the Wrangler/Miniflare/Undici toolchain current within compatible ranges.
 
 ## Reporting a vulnerability
 

@@ -1,5 +1,22 @@
 # Changelog
 
+## [APP v01.02.06] - 2026-08-03
+
+**Security patch — closes the current Hono CORS ReDoS advisory and refreshes
+the Cloudflare toolchain.**
+
+### Alterado
+
+- Raises direct Hono from `^4.12.32` to the current `^4.12.34`, resolving
+  GHSA-8j4g-w8fx-2239 in CORS `Access-Control-Request-Headers` parsing.
+- Updates Wrangler to the current-compatible `^4.118.0` range and scopes
+  Undici 7.29.0 to Wrangler's `miniflare` chain. Wrangler remains unpinned so
+  Cloudflare patch updates continue to flow within the current major.
+- Aligns the Biome schema and recommended preset syntax with CLI 2.5.6.
+- Synchronizes `APP_VERSION`, package metadata and supported-release
+  documentation at v01.02.06. The audited lockfile reports zero known
+  vulnerabilities.
+
 ## [APP v01.02.05] - 2026-06-19
 
 **Patch — security: raise transitive `ws` override floor to clear the OpenSSF Scorecard Vulnerabilities alert.** The org code-scanning surface flagged a high-severity advisory, GHSA-96hv-2xvq-fx4p (memory-exhaustion DoS in `ws` from tiny fragments and data chunks). `ws` is a transitive dependency pulled via `wrangler` → `miniflare`, which hard-pins the now-vulnerable patch; the existing `overrides` entry was holding it at the top of the affected range (8.20.1).

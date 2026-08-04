@@ -32,6 +32,7 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
+          check-latest: true
           cache: npm
       - name: Install dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
@@ -49,8 +50,13 @@ jobs:
         run: | # zizmor: ignore[adhoc-packages] Wrangler latest is an explicit organization policy; signatures are verified below.
           set -euo pipefail
           wrangler_prefix="$RUNNER_TEMP/wrangler-latest"
-          npm install --prefix "$wrangler_prefix" --save-exact --ignore-scripts --no-audit --no-fund --registry=https://registry.npmjs.org/ wrangler@latest
-          npm audit signatures --prefix "$wrangler_prefix" --registry=https://registry.npmjs.org/
+          effective_registry="$(npm config get registry --prefix "$wrangler_prefix")"
+          if [ "$effective_registry" != "https://registry.npmjs.org/" ]; then
+            echo "::error::Unexpected npm registry for the isolated Wrangler prefix: $effective_registry" >&2
+            exit 1
+          fi
+          npm install --prefix "$wrangler_prefix" --save-exact --ignore-scripts --no-audit --no-fund wrangler@latest
+          npm audit signatures --prefix "$wrangler_prefix"
 
           WRANGLER_BIN="$wrangler_prefix/node_modules/.bin/wrangler"
           if [ ! -x "$WRANGLER_BIN" ]; then
@@ -182,7 +188,7 @@ jobs:
             echo 'trap '"'"'rm -f "$recovery_config"'"'"' EXIT'
             echo 'jq --arg binding BIGDATA_DB --arg name bigdata_db --arg id "$D1_DATABASE_ID" '"'"'(.d1_databases[] | select(.binding == $binding and .database_name == $name) | .database_id) = $id'"'"' wrangler.json > "$recovery_config"'
             echo 'jq -e --arg id "$D1_DATABASE_ID" '"'"'[.d1_databases[] | select(.binding == "BIGDATA_DB" and .database_name == "bigdata_db" and .database_id == $id)] | length == 1'"'"' "$recovery_config" >/dev/null'
-            echo "npx --yes --registry=https://registry.npmjs.org/ wrangler@latest d1 time-travel restore $D1_DATABASE_NAME --bookmark=$bookmark --config \"\$recovery_config\""
+            echo "npx --yes wrangler@latest d1 time-travel restore $D1_DATABASE_NAME --bookmark=$bookmark --config \"\$recovery_config\""
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
         env:

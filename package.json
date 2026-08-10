@@ -29,8 +29,8 @@
     "db:migrate:remote": "wrangler d1 migrations apply bigdata_db --remote"
   },
   "dependencies": {
-    "hono": "^4.13.0",
-    "mercadopago": "3.2.1",
+    "hono": "^4.13.1",
+    "mercadopago": "3.3.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

@@ -39,12 +39,10 @@ test-results/
 .claude/
 .aiexclude
 .copilotignore
-AGENTS.md
 GEMINI.md
 .github/copilot-instructions.md
 
 # AI agent memory + tooling - broad coverage.
-CLAUDE.md
 .cursor/
 .cursorrules
 .continue/

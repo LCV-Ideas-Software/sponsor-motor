@@ -20,6 +20,7 @@ Payment Brick). Source em `src/`; deploy exclusivamente via GitHub Actions.
 npm run check
 npm run biome
 npm run format:public:check
+npm run projects:boundaries
 ```
 
 ## Workspace Policy

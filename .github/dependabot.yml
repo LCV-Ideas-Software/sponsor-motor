@@ -7,7 +7,7 @@ updates:
       time: "01:00"
       timezone: "America/Los_Angeles"
     cooldown:
-      default-days: 3
+      default-days: 7
       exclude:
         - "*"
     labels:
@@ -34,7 +34,8 @@ updates:
       time: "01:00"
       timezone: "America/Los_Angeles"
     cooldown:
-      default-days: 3
+      default-days: 7
+      semver-patch-days: 3
     labels:
       - "dependencies"
       - "npm"

@@ -1,6 +1,6 @@
 # Contributing
 
-This repository is maintained by LCV Ideas & Software. Contributions should preserve the security, automation, and release posture of sponsor-motor.
+This repository is maintained by LCV Ideas & Software. Contributions should preserve the security, automation, deployment, and internal-version posture of sponsor-motor.
 
 ## Baseline
 

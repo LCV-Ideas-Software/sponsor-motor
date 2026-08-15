@@ -4,7 +4,26 @@
 
 ### Added
 
-- Governanca de trabalho sobre GitHub Projects, Issues e Discussions: quadro dedicado do repositorio, formularios de issue para Incident, Maintenance e Spike, atalhos para Discussions no seletor de issues, workflow `add-to-project` (inerte ate a organizacao definir `LCV_PROJECTS_APP_CLIENT_ID`; gatilho `pull_request_target` sem checkout nem execucao de codigo do PR, para alcancar PRs de fork com o secret do environment (cobertura de PRs do Dependabot nao e garantida por este gatilho: fica decidida por sonda na ativacao e, se necessario, por reconciliacao em evento confiavel), com excecao estreita e documentada do zizmor) e o ritual de registro G1..G4 versionado em `AGENTS.md` e `CLAUDE.md` para Claude Code e ChatGPT-Codex.
+- Governanca de trabalho sobre GitHub Projects, Issues e Discussions: quadros dedicados,
+  formularios, atalhos para Discussions e ritual G1..G4 versionado em `AGENTS.md` e
+  `CLAUDE.md`. A inclusao de itens usa os workflows Auto-add nativos dos Projects #8 e #17.
+
+### Changed
+
+- Substituidos wrappers e gates proprios de CodeQL, Dependency Review, OpenSSF Scorecard,
+  Zizmor e GitHub Pages pelas implementacoes oficiais documentadas e com privilegio minimo.
+- O deploy e as migrations da D1 passam a usar o Wrangler Action oficial; o UUID nao secreto
+  da D1 existente fica no `wrangler.json`, enquanto token e conta continuam em GitHub Secrets.
+- Uma excecao minima e explicitamente autorizada consulta a Git References API imediatamente
+  antes da migration e bloqueia reruns cujo SHA ja nao seja a ponta de `main`.
+- O `sponsor-motor` passa a manter somente a versao interna `APP v...`; GitHub Releases e
+  tags de versao deixam de ser publicados para este web app.
+
+### Removed
+
+- Native Auto-merge, o Auto-add por GitHub Actions, o gate SARIF proprio, o manifesto Zizmor
+  por blobs, os respectivos verificadores customizados e os seis scripts proprios de
+  verificacao pos-deploy.
 
 ## [APP v01.02.06] - 2026-08-03
 

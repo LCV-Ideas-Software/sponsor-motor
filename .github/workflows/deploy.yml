@@ -44,6 +44,23 @@ jobs:
           npm run biome
           npm run check
 
+      - name: Reject a stale deployment revision
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          current_sha="$(
+            gh api \
+              --header "X-GitHub-Api-Version: 2026-03-10" \
+              "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" \
+              --jq '.object.sha'
+          )"
+
+          if [[ "${current_sha}" != "${EXPECTED_SHA}" ]]; then
+            echo "::error title=Stale deployment blocked::Expected ${EXPECTED_SHA}, but main points to ${current_sha}."
+            exit 1
+          fi
+
       - name: Apply D1 migrations and deploy with Wrangler
         uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
         with:

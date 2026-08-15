@@ -14,6 +14,8 @@
   Zizmor e GitHub Pages pelas implementacoes oficiais documentadas e com privilegio minimo.
 - O deploy e as migrations da D1 passam a usar o Wrangler Action oficial; o UUID nao secreto
   da D1 existente fica no `wrangler.json`, enquanto token e conta continuam em GitHub Secrets.
+- Uma excecao minima e explicitamente autorizada consulta a Git References API imediatamente
+  antes da migration e bloqueia reruns cujo SHA ja nao seja a ponta de `main`.
 - O `sponsor-motor` passa a manter somente a versao interna `APP v...`; GitHub Releases e
   tags de versao deixam de ser publicados para este web app.
 

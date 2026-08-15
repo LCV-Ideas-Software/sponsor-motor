@@ -20,7 +20,6 @@ Payment Brick). Source em `src/`; deploy exclusivamente via GitHub Actions.
 npm run check
 npm run biome
 npm run format:public:check
-npm run projects:boundaries
 ```
 
 ## Workspace Policy
@@ -86,8 +85,8 @@ mudar de escopo, vale o texto de la.
 ### Valvula de escape
 
 Bump de dependencia, correcao de typo, lockfile e ajuste de formatacao **dispensam issue**.
-O PR basta — ele entra no quadro sozinho quando o gatilho o alcanca; PR do Dependabot
-e uma lacuna declarada do gatilho e pode depender do backfill/reconciliacao da ativacao.
+O PR basta. Os workflows nativos Auto-add dos Projects #8 e #17 adicionam itens novos
+que correspondem aos filtros configurados; itens anteriores a ativacao exigem inclusao manual.
 
 ### Campos
 
@@ -108,9 +107,10 @@ com desvios `Bloqueado` e `Descartado`.
 > proprios em cada quadro. Atualize os DOIS quadros — o deste repositorio e o portfolio
 > #17 — a cada transicao; ID de opcao de um quadro nunca vale no outro (Discussion org#176).
 
-### Nada de identificador real em repositorio publico
+### Configuracao publica e segredos
 
-Issues, PRs e Discussions deste repositorio sao publicos e permanentes. Use placeholders
-(`proj-x`, `exemplo-projeto-000`, `exemplo.com`) no lugar de IDs de projeto de nuvem, nomes
-de banco, dominios e contas. Detalhe operacional sensivel vai para o quadro privado ou para
-`.github-private`.
+Issues, PRs e Discussions deste repositorio sao publicos e permanentes. Tokens, chaves,
+credenciais e demais segredos nunca sao versionados. Identificadores nao secretos exigidos
+pela configuracao oficial — como o UUID de um binding D1 existente — podem permanecer no
+`wrangler.json`; eles identificam recursos, mas nao concedem acesso. Detalhes operacionais
+sensíveis continuam no quadro privado ou em `.github-private`.

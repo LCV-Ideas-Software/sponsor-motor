@@ -15,7 +15,6 @@
     "url": "https://github.com/LCV-Ideas-Software/sponsor-motor/issues"
   },
   "scripts": {
-    "projects:boundaries": "node --test .github/scripts/add-to-project-workflow.regression.mjs",
     "format": "biome format --write src && prettier --write \"**/index.html\" \"*.md\" \".github/**/*.yml\" \"*.json\"",
     "format:check": "biome check src && prettier --check \"**/index.html\" \"*.md\" \".github/**/*.yml\" \"*.json\"",
     "format:public": "prettier --write \"**/index.html\"",

@@ -5,7 +5,6 @@
 # sponsor-motor
 
 [![status: stable](https://img.shields.io/badge/status-stable-brightgreen.svg)](#status)
-[![release](https://img.shields.io/github/v/release/LCV-Ideas-Software/sponsor-motor?sort=semver)](https://github.com/LCV-Ideas-Software/sponsor-motor/releases)
 [![CI](https://github.com/LCV-Ideas-Software/sponsor-motor/actions/workflows/ci.yml/badge.svg)](https://github.com/LCV-Ideas-Software/sponsor-motor/actions/workflows/ci.yml)
 [![Deploy](https://github.com/LCV-Ideas-Software/sponsor-motor/actions/workflows/deploy.yml/badge.svg)](https://github.com/LCV-Ideas-Software/sponsor-motor/actions/workflows/deploy.yml)
 [![Pages](https://github.com/LCV-Ideas-Software/sponsor-motor/actions/workflows/pages.yml/badge.svg)](https://github.com/LCV-Ideas-Software/sponsor-motor/actions/workflows/pages.yml)
@@ -16,11 +15,13 @@
 
 Cloudflare Worker dedicado para processar apoios/doações via Mercado Pago Checkout Transparente com Orders API para a LCV Ideas & Software.
 
-**Status.** Stable. Prepared release: **APP v01.02.06**. See [CHANGELOG.md](./CHANGELOG.md) for the full release history.
+**Status.** Stable. Current application version: **APP v01.02.06**. This web app
+keeps an internal version and does not publish GitHub Releases or version tags.
+See [CHANGELOG.md](./CHANGELOG.md) for the full change history.
 
 ## Change History
 
-The version history at a glance:
+The internal application version history at a glance:
 
 | Versão          | Mudanças                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -48,11 +49,11 @@ The version history at a glance:
 
 - Página pública: `https://www.lcv.dev/sponsor`.
 - API pública: `https://sponsor-motor.lcv.app.br`.
-- Banco: `example_db`, com tabelas `sponsor_payments`, `sponsor_payment_events` e `sponsor_rate_limits`.
+- Banco: `bigdata_db`, com tabelas `sponsor_payments`, `sponsor_payment_events` e `sponsor_rate_limits`.
 - Secrets Store: `mp-access-token`, `mercadopago-webhook-secret`, `mercadopago-public-key`.
 - Backend Mercado Pago: SDK oficial `mercadopago`, com `nodejs_compat` no Worker para suportar a biblioteca Node.
 - Frontend Mercado Pago: a página `https://www.lcv.dev/sponsor` carrega MercadoPago.js V2 e renderiza Card Payment Brick com Secure Fields.
-- Backend principal: `POST /api/orders` cria uma order com `Order.create` da SDK oficial `mercadopago@2.12.0`, cartão tokenizado, item categorizado e 3DS por risco.
+- Backend principal: `POST /api/orders` cria uma order com `Order.create` da SDK oficial `mercadopago@3.3.0`, cartão tokenizado, item categorizado e 3DS por risco.
 - Fallback Checkout Pro: `POST /api/preferences` permanece bloqueado com `410 Gone`; a integração ativa é somente Checkout Transparente + Orders API.
 - O custom domain `sponsor-motor.lcv.app.br` fica declarado em `wrangler.json` como `custom_domain: true`; o token de deploy precisa manter permissão de gerenciamento de Workers/Custom Domains na zona `lcv.app.br`.
 
@@ -108,7 +109,7 @@ Resumo dos pontos críticos preservados:
 
 ## Deploy
 
-O workflow `Deploy` injeta o `D1_DATABASE_ID` do GitHub Secret, aplica migrations remotas no `example_db` e publica o Worker no Cloudflare.
+O workflow `Deploy` usa o binding oficial versionado para `bigdata_db`, aplica migrations remotas e publica o Worker com o Wrangler Action oficial. O UUID da D1 e identificador, nao credencial; tokens continuam fora do repositorio. Como migrations e deploy sao operacoes sequenciais, toda migration deve ser retrocompativel com a revisao anterior do Worker.
 
 ## Segurança
 

@@ -25,6 +25,12 @@
   por blobs, os respectivos verificadores customizados e os seis scripts proprios de
   verificacao pos-deploy.
 
+### Fixed
+
+- `docs/mercadopago-integration-quality.md` deixou de citar o SDK `mercadopago` como
+  `2.12.0`: a linha "Backend SDK" agora reflete o pino real `3.3.0` do `package.json`
+  (README ja estava correto). Fecha o drift documental da issue #148.
+
 ## [APP v01.02.06] - 2026-08-03
 
 **Security patch — closes the current Hono CORS ReDoS advisory and refreshes

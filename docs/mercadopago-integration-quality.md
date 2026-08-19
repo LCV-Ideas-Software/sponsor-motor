@@ -27,7 +27,7 @@ This document records the current quality posture of `sponsor-motor` for the Mer
 | ------------------------------- | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | Orders API only                 | Preserved                 | `POST /api/orders` creates `/v1/orders`; `POST /api/preferences` returns 410.                                                       |
 | Secure Fields / PCI             | Preserved                 | `/sponsor` uses MercadoPago.js V2 Card Payment Brick; card number, expiry and CVV are never handled by LCV code.                    |
-| Backend SDK                     | Implemented               | Order creation and lookups use the official `mercadopago` Node.js SDK pinned to `3.3.0`.                                            |
+| Backend SDK                     | Implemented               | Order creation and lookups use the official `mercadopago` Node.js SDK pinned to `3.4.0`.                                            |
 | Idempotency                     | Preserved                 | `Order.create` receives `requestOptions.idempotencyKey = externalReference`; the SDK emits `X-Idempotency-Key`.                     |
 | 3DS                             | Preserved and hardened    | `validation=on_fraud_risk`, `liability_shift=required`, documented challenge URL path, status polling and webhook processing.        |
 | Buyer phone                     | Implemented when provided | Optional phone field is sent as `payer.phone.area_code` + `payer.phone.number`.                                                     |

@@ -53,7 +53,7 @@ The internal application version history at a glance:
 - Secrets Store: `mp-access-token`, `mercadopago-webhook-secret`, `mercadopago-public-key`.
 - Backend Mercado Pago: SDK oficial `mercadopago`, com `nodejs_compat` no Worker para suportar a biblioteca Node.
 - Frontend Mercado Pago: a página `https://www.lcv.dev/sponsor` carrega MercadoPago.js V2 e renderiza Card Payment Brick com Secure Fields.
-- Backend principal: `POST /api/orders` cria uma order com `Order.create` da SDK oficial `mercadopago@3.3.0`, cartão tokenizado, item categorizado e 3DS por risco.
+- Backend principal: `POST /api/orders` cria uma order com `Order.create` da SDK oficial `mercadopago@3.4.0`, cartão tokenizado, item categorizado e 3DS por risco.
 - Fallback Checkout Pro: `POST /api/preferences` permanece bloqueado com `410 Gone`; a integração ativa é somente Checkout Transparente + Orders API.
 - O custom domain `sponsor-motor.lcv.app.br` fica declarado em `wrangler.json` como `custom_domain: true`; o token de deploy precisa manter permissão de gerenciamento de Workers/Custom Domains na zona `lcv.app.br`.
 

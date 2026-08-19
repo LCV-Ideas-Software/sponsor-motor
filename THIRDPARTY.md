@@ -5,7 +5,7 @@ Direct dependencies declared by this repository:
 | Component                 | Version       | License                          | Scope       | Source                                                  |
 | ------------------------- | ------------- | -------------------------------- | ----------- | ------------------------------------------------------- |
 | hono                      | ^4.13.1       | MIT                              | runtime     | https://www.npmjs.com/package/hono                      |
-| mercadopago               | 3.3.0         | Not declared in package metadata | runtime     | https://www.npmjs.com/package/mercadopago               |
+| mercadopago               | 3.4.0         | Not declared in package metadata | runtime     | https://www.npmjs.com/package/mercadopago               |
 | zod                       | ^4.4.3        | MIT                              | runtime     | https://www.npmjs.com/package/zod                       |
 | @biomejs/biome            | ^2.5.7        | MIT OR Apache-2.0                | development | https://www.npmjs.com/package/@biomejs/biome            |
 | @cloudflare/workers-types | ^5.20260811.1 | MIT OR Apache-2.0                | development | https://www.npmjs.com/package/@cloudflare/workers-types |

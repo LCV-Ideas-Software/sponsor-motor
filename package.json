@@ -30,7 +30,7 @@
   },
   "dependencies": {
     "hono": "^4.13.2",
-    "mercadopago": "3.3.0",
+    "mercadopago": "3.4.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

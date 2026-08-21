@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+## [v01.02.08] - 2026-08-21
+
+### Added
+
+- CLI administrativa `scripts/sponsor-admin.mjs` (issue #152): `status`,
+  `cancel` e `refund` (total e parcial) sem curl artesanal, com confirmação
+  interativa para operações destrutivas (`--yes` para pular), token somente
+  via ambiente (`SPONSOR_OPERATOR_TOKEN` — nunca por argv), mensagens de
+  erro com o HTTP e o detalhe do worker, e exit codes distintos (0/1/2).
+  A CLI fala exclusivamente com a API do worker — agnóstica de provedor,
+  sobrevive à migração planejada na issue #186. Coberta por 9 testes
+  (parse de argumentos, shape do refund parcial, confirmação, Bearer,
+  falhas de API) com o vitest passando a incluir `scripts/**/*.test.mjs`.
+
 ## [v01.02.07] - 2026-08-21
 
 ### Fixed

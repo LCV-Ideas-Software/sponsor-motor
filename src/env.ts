@@ -1,4 +1,4 @@
-export const APP_VERSION = 'APP v01.02.06';
+export const APP_VERSION = 'APP v01.02.07';
 
 export interface SecretStoreBinding {
   get(): Promise<string>;
@@ -15,7 +15,10 @@ export interface Env {
   // Programa de Parcerias. Forwarded to the SDK via
   // MercadoPagoConfig.options.integratorId. Optional; absence is fine
   // for self-deployed integrations.
-  MERCADOPAGO_INTEGRATOR_ID?: string;
+  // v01.02.07 (issue #151): also accepts a Secrets Store binding, the
+  // delivery path the integration-quality doc instructs operators to
+  // use — a plain string (var / classic secret) keeps working.
+  MERCADOPAGO_INTEGRATOR_ID?: SecretStoreBinding | string;
   // v01.02.00: bearer token gating the operator-only refund + cancel
   // endpoints. Required to hit /api/orders/:id/refund or /cancel; the
   // worker returns 401 when missing or mismatched. Compared with a
@@ -29,11 +32,16 @@ export interface Env {
 export interface ResolvedEnv
   extends Omit<
     Env,
-    'MERCADOPAGO_ACCESS_TOKEN' | 'MERCADOPAGO_WEBHOOK_SECRET' | 'MERCADOPAGO_PUBLIC_KEY' | 'SPONSOR_OPERATOR_TOKEN'
+    | 'MERCADOPAGO_ACCESS_TOKEN'
+    | 'MERCADOPAGO_WEBHOOK_SECRET'
+    | 'MERCADOPAGO_PUBLIC_KEY'
+    | 'MERCADOPAGO_INTEGRATOR_ID'
+    | 'SPONSOR_OPERATOR_TOKEN'
   > {
   MERCADOPAGO_ACCESS_TOKEN: string;
   MERCADOPAGO_WEBHOOK_SECRET: string;
   MERCADOPAGO_PUBLIC_KEY?: string | undefined;
+  MERCADOPAGO_INTEGRATOR_ID?: string | undefined;
   SPONSOR_OPERATOR_TOKEN?: string | undefined;
 }
 

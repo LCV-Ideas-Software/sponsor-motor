@@ -29,7 +29,7 @@ This document records the current quality posture of `sponsor-motor` for the Mer
 | Secure Fields / PCI             | Preserved                 | `/sponsor` uses MercadoPago.js V2 Card Payment Brick; card number, expiry and CVV are never handled by LCV code.                    |
 | Backend SDK                     | Implemented               | Order creation and lookups use the official `mercadopago` Node.js SDK pinned to `3.4.0`.                                            |
 | Idempotency                     | Preserved                 | `Order.create` receives `requestOptions.idempotencyKey = externalReference`; the SDK emits `X-Idempotency-Key`.                     |
-| 3DS                             | Preserved and hardened    | `validation=on_fraud_risk`, `liability_shift=required`, documented challenge URL path, status polling and webhook processing.        |
+| 3DS                             | Preserved and hardened    | `validation=on_fraud_risk`, `liability_shift=required`, documented challenge URL path, status polling and webhook processing.       |
 | Buyer phone                     | Implemented when provided | Optional phone field is sent as `payer.phone.area_code` + `payer.phone.number`.                                                     |
 | Buyer name and address          | Preserved                 | `payer.first_name`, `payer.last_name`, `payer.address` and `shipment.address` remain in the order payload.                          |
 | Item category and external code | Preserved                 | `items[0].category_id=services` and `items[0].external_code=projectSlug`.                                                           |
@@ -56,7 +56,7 @@ The items below were originally listed under "Not implemented by design" before 
 
 ### Integrator ID (`x-integrator-id`)
 
-`MERCADOPAGO_INTEGRATOR_ID` env var. When defined, it is forwarded to the SDK via `MercadoPagoConfig.options.integratorId`, which the SDK then attaches as the `x-integrator-id` header on every Order create/get/cancel/refund request. Absent env var keeps the integration anonymous (previous behaviour). Operators in the Programa de Parcerias can set the value once in Cloudflare Secrets Store and the worker picks it up on next deploy.
+`MERCADOPAGO_INTEGRATOR_ID` env var. When defined, it is forwarded to the SDK via `MercadoPagoConfig.options.integratorId`, which the SDK then attaches as the `x-integrator-id` header on every Order create/get/cancel/refund request. Absent env var keeps the integration anonymous (previous behaviour). Operators in the Programa de Parcerias can deliver the value by any of the three supported paths — a Cloudflare Secrets Store binding (v01.02.07 resolves the binding shape like the other Mercado Pago credentials), a plain `vars` entry in `wrangler.json` (it is an identifier, not a credential) or a classic worker secret — and the worker picks it up on next deploy. Activation checklist: register the integration in the Programa de Parcerias, obtain the Integrator ID, add it via one of the paths above (Secrets Store binding requires the matching `secrets_store_secrets` entry in `wrangler.json`), deploy via GitHub Actions and confirm the `x-integrator-id` header on the next order.
 
 ### `additional_info.payer.last_purchase`
 
@@ -90,13 +90,13 @@ The official Mercado Pago logo is now displayed near the "Apoiar agora" panel he
 
 ### v01.02.00 status table
 
-| Item                       | Status before v01.02.00       | Status after v01.02.00                                                                       |
-| -------------------------- | ----------------------------- | -------------------------------------------------------------------------------------------- |
-| Integrator ID              | Documented as not configured  | Implemented, env-driven; absent env keeps prior anonymous behaviour                          |
-| `payer.last_purchase`      | Not implemented (donation N/A) | Optional API field; only forwarded when caller provides value                                |
-| Cancellation API endpoint  | Not exposed                   | `POST /api/orders/:id/cancel` with bearer-token auth; fail-closed when token not configured  |
-| Refund API endpoint        | Not exposed                   | `POST /api/orders/:id/refund` (full + partial) with bearer-token auth; fail-closed otherwise |
-| Mercado Pago logo on UI    | Not displayed                 | Official MP logo near the payment area on `/sponsor` (links to mercadopago.com.br)           |
+| Item                      | Status before v01.02.00        | Status after v01.02.00                                                                       |
+| ------------------------- | ------------------------------ | -------------------------------------------------------------------------------------------- |
+| Integrator ID             | Documented as not configured   | Implemented, env-driven; absent env keeps prior anonymous behaviour                          |
+| `payer.last_purchase`     | Not implemented (donation N/A) | Optional API field; only forwarded when caller provides value                                |
+| Cancellation API endpoint | Not exposed                    | `POST /api/orders/:id/cancel` with bearer-token auth; fail-closed when token not configured  |
+| Refund API endpoint       | Not exposed                    | `POST /api/orders/:id/refund` (full + partial) with bearer-token auth; fail-closed otherwise |
+| Mercado Pago logo on UI   | Not displayed                  | Official MP logo near the payment area on `/sponsor` (links to mercadopago.com.br)           |
 
 ## Operational guardrails
 

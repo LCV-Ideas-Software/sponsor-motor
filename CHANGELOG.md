@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+## [v01.02.07] - 2026-08-21
+
+### Fixed
+
+- `MERCADOPAGO_INTEGRATOR_ID` aceita um binding do Cloudflare Secrets Store
+  (issue #151): o tipo passa a `SecretStoreBinding | string` e o valor é
+  resolvido em `resolveEnv` como as demais credenciais do Mercado Pago —
+  antes, o caminho que a própria documentação de qualidade instruía
+  (Secrets Store) quebraria com `TypeError` no cliente do SDK. Os seis
+  pontos de chamada passam a usar o valor resolvido; string simples
+  (var/classic secret) segue funcionando. A ativação em produção continua
+  dependendo do registro no Programa de Parcerias e do valor real
+  (checklist na documentação de qualidade).
+
 ### Added
 
 - Governanca de trabalho sobre GitHub Projects, Issues e Discussions: quadros dedicados,
@@ -28,7 +42,7 @@
 ### Fixed
 
 - `docs/mercadopago-integration-quality.md` deixou de citar o SDK `mercadopago` como
-  `2.12.0`: a linha "Backend SDK" agora reflete o pino real `3.3.0` do `package.json`
+  `2.12.0`: a linha "Backend SDK" agora reflete o pino real `3.4.0` do `package.json`
   (README ja estava correto). Fecha o drift documental da issue #148.
 
 ## [APP v01.02.06] - 2026-08-03

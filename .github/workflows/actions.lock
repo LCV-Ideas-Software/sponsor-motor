@@ -8,7 +8,7 @@ workflows:
         - 'actions/setup-node@820762786026740c76f36085b0efc47a31fe5020'
     '.github/workflows/codeql.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
-        - 'github/codeql-action@v4.37.7'
+        - 'github/codeql-action@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd'
     '.github/workflows/dependency-review.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294'
@@ -29,7 +29,7 @@ workflows:
     '.github/workflows/scorecard.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
         - 'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a'
-        - 'github/codeql-action@v4.37.7'
+        - 'github/codeql-action@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd'
         - 'ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc'
     '.github/workflows/zizmor.yml':
         - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
@@ -87,7 +87,7 @@ dependencies:
         commit: 'sha1-7188fc363630916deb702c7fdcf4e481b751f97a'
         owner_id: 9919
         repo_id: 259445878
-    'github/codeql-action@v4.37.7':
+    'github/codeql-action@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd':
         ref: 'v4.37.7'
         commit: 'sha1-ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd'
         owner_id: 9919

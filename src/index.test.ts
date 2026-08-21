@@ -596,6 +596,34 @@ describe('Operator admin endpoints', () => {
     expect(mercadoPagoMocks.cancelMercadoPagoOrder).toHaveBeenCalledWith('APP_USR-test-token', 'ORD-1234', 'dev-1234');
   });
 
+  it('resolves MERCADOPAGO_INTEGRATOR_ID from a Secrets Store binding (issue #151)', async () => {
+    // docs/mercadopago-integration-quality.md instructs operators to set the
+    // value in Cloudflare Secrets Store; the worker must accept the binding
+    // shape ({ get() }) exactly like the other Mercado Pago credentials.
+    const d1 = createDbMock();
+    mercadoPagoMocks.cancelMercadoPagoOrder.mockResolvedValueOnce({
+      id: 'ORD-1234',
+      status: 'cancelled',
+      external_reference: 'sp_lcv-ideas-software_cccc',
+    });
+    await app.fetch(
+      new Request('https://sponsor-motor.lcv.app.br/api/orders/ORD-1234/cancel', {
+        method: 'POST',
+        headers: { authorization: 'Bearer op-secret' },
+      }),
+      {
+        ...envWithDb(d1.db),
+        SPONSOR_OPERATOR_TOKEN: 'op-secret',
+        MERCADOPAGO_INTEGRATOR_ID: { get: async () => 'partner-5678' },
+      },
+    );
+    expect(mercadoPagoMocks.cancelMercadoPagoOrder).toHaveBeenCalledWith(
+      'APP_USR-test-token',
+      'ORD-1234',
+      'partner-5678',
+    );
+  });
+
   it('refunds with no body (full refund) on a matching Bearer token', async () => {
     const d1 = createDbMock();
     mercadoPagoMocks.refundMercadoPagoOrder.mockResolvedValueOnce({

@@ -35,6 +35,7 @@ async function resolveEnv(env: Env): Promise<ResolvedEnv> {
   const webhookSecret = await resolveSecret(env.MERCADOPAGO_WEBHOOK_SECRET);
   const publicKey = await resolveSecret(env.MERCADOPAGO_PUBLIC_KEY);
   const operatorToken = await resolveSecret(env.SPONSOR_OPERATOR_TOKEN);
+  const integratorId = await resolveSecret(env.MERCADOPAGO_INTEGRATOR_ID);
   if (!accessToken) throw new Error('MERCADOPAGO_ACCESS_TOKEN missing.');
   if (!webhookSecret) throw new Error('MERCADOPAGO_WEBHOOK_SECRET missing.');
   return {
@@ -42,6 +43,7 @@ async function resolveEnv(env: Env): Promise<ResolvedEnv> {
     MERCADOPAGO_ACCESS_TOKEN: accessToken,
     MERCADOPAGO_WEBHOOK_SECRET: webhookSecret,
     MERCADOPAGO_PUBLIC_KEY: publicKey,
+    MERCADOPAGO_INTEGRATOR_ID: integratorId,
     SPONSOR_OPERATOR_TOKEN: operatorToken,
   };
 }
@@ -268,7 +270,7 @@ app.post('/api/orders', async (c) => {
     firstPurchaseOnline: parsed.data.firstPurchaseOnline,
     payerLastPurchase,
     threeDsValidation: threeDsMode,
-    integratorId: c.env.MERCADOPAGO_INTEGRATOR_ID,
+    integratorId: resolved.MERCADOPAGO_INTEGRATOR_ID,
   }).catch(async (error: unknown) => {
     await markOrderCreationFailed(c.env.BIGDATA_DB, externalReference, nowMs());
     throw error;
@@ -351,7 +353,7 @@ app.post('/api/orders/:orderId/cancel', async (c) => {
     cancelled = await cancelMercadoPagoOrder(
       resolved.MERCADOPAGO_ACCESS_TOKEN,
       orderId,
-      c.env.MERCADOPAGO_INTEGRATOR_ID,
+      resolved.MERCADOPAGO_INTEGRATOR_ID,
     );
   } catch (error) {
     if (isMercadoPagoLookupNotFound(error)) return c.json({ error: 'Pedido não encontrado no Mercado Pago.' }, 404);
@@ -412,7 +414,7 @@ app.post('/api/orders/:orderId/refund', async (c) => {
   try {
     refunded = await refundMercadoPagoOrder(resolved.MERCADOPAGO_ACCESS_TOKEN, orderId, {
       transactions: parsed.data?.transactions,
-      integratorId: c.env.MERCADOPAGO_INTEGRATOR_ID,
+      integratorId: resolved.MERCADOPAGO_INTEGRATOR_ID,
     });
   } catch (error) {
     if (isMercadoPagoLookupNotFound(error)) return c.json({ error: 'Pedido não encontrado no Mercado Pago.' }, 404);
@@ -624,7 +626,7 @@ app.post('/api/webhooks/mercadopago', async (c) => {
   if (dataId && topic === 'orders') {
     const order =
       orderFromWebhookPayload(payload) ||
-      (await fetchMercadoPagoOrder(resolved.MERCADOPAGO_ACCESS_TOKEN, dataId, c.env.MERCADOPAGO_INTEGRATOR_ID).catch(
+      (await fetchMercadoPagoOrder(resolved.MERCADOPAGO_ACCESS_TOKEN, dataId, resolved.MERCADOPAGO_INTEGRATOR_ID).catch(
         (error: unknown) => {
           if (!isMercadoPagoLookupNotFound(error)) throw error;
           console.warn('[sponsor-motor] Mercado Pago webhook order not found.', { eventType, providerId: dataId });
@@ -653,7 +655,7 @@ app.post('/api/webhooks/mercadopago', async (c) => {
     const payment = await fetchMercadoPagoPayment(
       resolved.MERCADOPAGO_ACCESS_TOKEN,
       dataId,
-      c.env.MERCADOPAGO_INTEGRATOR_ID,
+      resolved.MERCADOPAGO_INTEGRATOR_ID,
     ).catch((error: unknown) => {
       if (!isMercadoPagoLookupNotFound(error)) throw error;
       console.warn('[sponsor-motor] Mercado Pago webhook payment not found.', { eventType, providerId: dataId });

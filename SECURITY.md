@@ -2,7 +2,7 @@
 
 ## Supported status
 
-Latest supported deployed/source version: APP v01.02.07. The current `main`
+Latest supported deployed/source version: APP v01.02.08. The current `main`
 branch is the supported source for security fixes and production deployments.
 This web app does not publish GitHub Releases or version tags.
 

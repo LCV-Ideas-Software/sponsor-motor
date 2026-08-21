@@ -15,7 +15,7 @@
 
 Cloudflare Worker dedicado para processar apoios/doações via Mercado Pago Checkout Transparente com Orders API para a LCV Ideas & Software.
 
-**Status.** Stable. Current application version: **APP v01.02.07**. This web app
+**Status.** Stable. Current application version: **APP v01.02.08**. This web app
 keeps an internal version and does not publish GitHub Releases or version tags.
 See [CHANGELOG.md](./CHANGELOG.md) for the full change history.
 
@@ -25,6 +25,7 @@ The internal application version history at a glance:
 
 | Versão          | Mudanças                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **`v01.02.08`** | **Admin CLI (issue #152).** `scripts/sponsor-admin.mjs` wraps the operator-only endpoints (status/cancel/refund, partial refunds included) with interactive confirmation, env-only token and distinct exit codes. Talks only to the worker API — provider-agnostic, survives the migration planned in #186.                                                                                                              |
 | **`v01.02.07`** | **Integrator ID via Secrets Store (issue #151).** `MERCADOPAGO_INTEGRATOR_ID` now resolves the Cloudflare Secrets Store binding shape like the other Mercado Pago credentials; plain var/classic secret keep working. Production activation still requires the real Programa de Parcerias value (checklist in the integration-quality doc).                                                                              |
 | **`v01.02.06`** | **Security and Cloudflare toolchain patch.** Updates Hono to 4.12.34 for GHSA-8j4g-w8fx-2239, moves Wrangler to the current-compatible 4.118 line and scopes Undici 7.29.0 to Miniflare.                                                                                                                                                                                                                                 |
 | **`v01.02.05`** | **Security patch.** Raised the transitive `ws` override floor to 8.21.0 to clear the high-severity memory-exhaustion DoS advisory (GHSA-96hv-2xvq-fx4p) flagged by the OpenSSF Scorecard Vulnerabilities check, and synchronized APP_VERSION/package metadata to v01.02.05.                                                                                                                                              |
@@ -67,6 +68,26 @@ The internal application version history at a glance:
 - `POST /api/preferences` retorna `410 Gone` para impedir mistura com Checkout Pro.
 - `GET /api/status/:externalReference`
 - `POST /api/webhooks/mercadopago`
+- `POST /api/orders/:orderId/cancel` e `POST /api/orders/:orderId/refund` — operator-only
+  (`Authorization: Bearer $SPONSOR_OPERATOR_TOKEN`).
+
+## Administração (CLI)
+
+Superfície administrativa sem curl artesanal — `scripts/sponsor-admin.mjs` fala apenas com a
+API do worker (agnóstica de provedor):
+
+```bash
+# somente leitura (endpoint público)
+node scripts/sponsor-admin.mjs status <externalReference>
+
+# operações do operador (exigem SPONSOR_OPERATOR_TOKEN no ambiente; confirmação interativa,
+# use --yes para pular; --amount/--transaction-id para reembolso parcial)
+node scripts/sponsor-admin.mjs cancel <orderId>
+node scripts/sponsor-admin.mjs refund <orderId> [--amount 12.34] [--transaction-id ID]
+```
+
+`SPONSOR_API_BASE_URL` sobrepõe a base (default produção). Exit codes: `0` sucesso,
+`1` erro da API, `2` uso inválido/abortado. O token nunca é aceito por argv.
 
 ## Webhooks Mercado Pago
 

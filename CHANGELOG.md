@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Changed
+
+- O espelho pós-deploy do Linear Release passa a usar a action oficial da
+  Linear, pinada por SHA na v0.16.0, preservando o SHA exato publicado, o modo
+  best-effort e o deploy oficial do Wrangler com migração D1 anterior.
+- As instruções para agentes passam a referenciar somente o serviço atual
+  `cross-review` e dispensam sua execução em manutenção mecânica de baixo risco.
+- A permissão somente leitura exigida pelo workflow oficial do OpenSSF
+  Scorecard passa a ter uma exceção Zizmor pontual e documentada.
+
 ## [v01.02.08] - 2026-08-21
 
 ### Added

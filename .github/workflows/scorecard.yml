@@ -9,7 +9,10 @@ on:
   schedule:
     - cron: "37 8 * * 1"
 
-permissions: read-all
+# The upstream OpenSSF Scorecard workflow deliberately grants read-all so the
+# analysis can inspect every supported repository signal. Writes remain scoped
+# to the analysis job below.
+permissions: read-all # zizmor: ignore[excessive-permissions] upstream-required read-only visibility
 
 concurrency:
   group: scorecard-${{ github.workflow }}-${{ github.ref }}

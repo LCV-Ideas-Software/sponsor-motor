@@ -24,12 +24,12 @@ npm run format:public:check
 
 ## Workspace Policy
 
-Follow the workspace-root `AGENTS.md` directives of the private workspace that
-hosts this checkout (not versioned in this public repository). In
-particular: no self-review in cross-review gates, `ultrabrain` plus
-`cross-review-v2` before substantive closure, `cross-review-v1` only as fallback
-for v2, `main` as the deployment branch, and Commit & Sync only after final
-audit when requested.
+Follow the workspace directives that govern the private checkout hosting this
+public repository. In particular: use `ultrabrain` for every change; use only
+the current `cross-review` service when independent review is proportionate to
+the risk (mechanical action swaps and similarly simple maintenance are exempt);
+never self-review in an applicable cross-review gate; use `main` as the
+deployment branch; and Commit & Sync only after the requested final audit.
 
 ## Registro de trabalho (GitHub Projects, Issues e Discussions)
 

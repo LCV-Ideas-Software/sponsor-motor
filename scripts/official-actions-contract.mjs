@@ -24,6 +24,7 @@ const deploy = read('.github/workflows/deploy.yml');
 const actionsLock = read('.github/workflows/actions.lock');
 const packageJson = JSON.parse(read('package.json'));
 const packageLock = JSON.parse(read('package-lock.json'));
+const installedWrangler = JSON.parse(read('node_modules/wrangler/package.json'));
 const allWorkflows = readdirSync(workflowsDirectory)
   .filter((file) => /\.ya?ml$/u.test(file))
   .map((file) => read(path.join('.github', 'workflows', file)))
@@ -66,6 +67,10 @@ test('Linear Release uses the pinned official action and lock entry', () => {
 
 test('the D1 migration and deploy remain on the official Wrangler action', () => {
   const officialUse = `cloudflare/wrangler-action@${WRANGLER_ACTION_SHA}`;
+  const rootLock = packageLock.packages[''];
+  const lockedWrangler = packageLock.packages['node_modules/wrangler'];
+  const installDependenciesIndex = deploy.indexOf('run: npm ci --ignore-scripts --no-audit --no-fund');
+  const wranglerActionIndex = deploy.indexOf(`uses: ${officialUse}`);
 
   assert.equal(occurrences(deploy, officialUse), 1);
   assert.match(deploy, /apiToken: \$\{\{ secrets\.CLOUDFLARE_API_TOKEN \}\}/u);
@@ -75,8 +80,16 @@ test('the D1 migration and deploy remain on the official Wrangler action', () =>
     deploy,
     /preCommands: wrangler d1 migrations apply bigdata_db --remote --config wrangler\.json[\s\S]*command: >-[\s\S]*deploy --strict --config wrangler\.json[\s\S]*--tag \$\{\{ github\.sha \}\}[\s\S]*--message "GitHub Actions run \$\{\{ github\.run_id \}\} for \$\{\{ github\.sha \}\}"/u,
   );
-  assert.equal(packageJson.devDependencies.wrangler, '^4.123.0');
-  assert.equal(packageLock.packages['node_modules/wrangler'].version, '4.123.0');
+  assert.doesNotMatch(deploy, /wranglerVersion:/u);
+  assert.ok(installDependenciesIndex >= 0);
+  assert.ok(wranglerActionIndex >= 0);
+  assert.ok(installDependenciesIndex < wranglerActionIndex);
+  assert.match(packageJson.devDependencies.wrangler, /^\^4\.\d+\.\d+$/u);
+  assert.equal(rootLock.devDependencies.wrangler, packageJson.devDependencies.wrangler);
+  assert.equal(installedWrangler.version, lockedWrangler.version);
+  assert.match(lockedWrangler.version, /^4\.\d+\.\d+$/u);
+  assert.equal(lockedWrangler.dev, true);
+  assert.match(lockedWrangler.integrity, /^sha512-/u);
   assert.equal(occurrences(actionsLock, officialUse), 2);
 });
 

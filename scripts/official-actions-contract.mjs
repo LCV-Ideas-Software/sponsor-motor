@@ -39,14 +39,15 @@ test('Linear Release remains tied to the exact successful Deploy SHA', () => {
     linearRelease,
     /group: linear-release-\$\{\{ github\.event\.workflow_run\.head_branch \}\}-\$\{\{ github\.event\.workflow_run\.conclusion \}\}/u,
   );
-  assert.match(linearRelease, /cancel-in-progress: false/u);
+  assert.match(linearRelease, /queue: max/u);
+  assert.doesNotMatch(linearRelease, /cancel-in-progress:/u);
   assert.match(linearRelease, /environment: linear-release/u);
   assert.match(linearRelease, /permissions:\s*\n\s*contents: read/u);
   assert.match(linearRelease, new RegExp(`uses: actions/checkout@${CHECKOUT_SHA}`, 'u'));
   assert.match(linearRelease, /ref: \$\{\{ github\.event\.workflow_run\.head_sha \}\}/u);
   assert.match(linearRelease, /fetch-depth: 0/u);
   assert.match(linearRelease, /persist-credentials: false/u);
-  assert.match(linearRelease, /continue-on-error: true/u);
+  assert.doesNotMatch(linearRelease, /continue-on-error:/u);
 });
 
 test('Linear Release uses the pinned official action and lock entry', () => {

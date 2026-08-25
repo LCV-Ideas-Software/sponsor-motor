@@ -19,6 +19,69 @@ function occurrences(text, fragment) {
   return text.split(fragment).length - 1;
 }
 
+function workflowJob(workflow, jobId) {
+  const lines = workflow.split(/\r?\n/u);
+  const jobsIndexes = lines.flatMap((line, index) => (/^jobs:\s*(?:#.*)?$/u.test(line) ? [index] : []));
+
+  assert.equal(jobsIndexes.length, 1, 'workflow must contain exactly one top-level jobs mapping');
+
+  const jobsIndex = jobsIndexes[0];
+  let jobIndent = null;
+  const jobStarts = [];
+
+  for (let index = jobsIndex + 1; index < lines.length; index += 1) {
+    const line = lines[index];
+    const trimmed = line.trim();
+
+    if (trimmed === '' || trimmed.startsWith('#')) {
+      continue;
+    }
+
+    const indent = line.length - line.trimStart().length;
+    if (indent === 0) {
+      break;
+    }
+
+    jobIndent ??= indent;
+    if (indent === jobIndent && trimmed === `${jobId}:`) {
+      jobStarts.push(index);
+    }
+  }
+
+  assert.equal(jobStarts.length, 1, `workflow must contain exactly one ${jobId} job`);
+
+  const jobStart = jobStarts[0];
+  let jobEnd = lines.length;
+  for (let index = jobStart + 1; index < lines.length; index += 1) {
+    const line = lines[index];
+    const trimmed = line.trim();
+
+    if (trimmed === '' || trimmed.startsWith('#')) {
+      continue;
+    }
+
+    const indent = line.length - line.trimStart().length;
+    if (indent <= jobIndent) {
+      jobEnd = index;
+      break;
+    }
+  }
+
+  return lines.slice(jobStart, jobEnd).join('\n');
+}
+
+function assertStepOrderWithinJob(workflow, jobId, firstStep, secondStep) {
+  const job = workflowJob(workflow, jobId);
+  const firstStepIndex = job.indexOf(firstStep);
+  const secondStepIndex = job.indexOf(secondStep);
+
+  assert.ok(firstStepIndex >= 0, `${jobId} job must contain ${firstStep}`);
+  assert.ok(secondStepIndex >= 0, `${jobId} job must contain ${secondStep}`);
+  assert.ok(firstStepIndex < secondStepIndex, `${firstStep} must precede ${secondStep} in the ${jobId} job`);
+
+  return job;
+}
+
 const linearRelease = read('.github/workflows/linear-release.yml');
 const deploy = read('.github/workflows/deploy.yml');
 const actionsLock = read('.github/workflows/actions.lock');
@@ -69,10 +132,15 @@ test('the D1 migration and deploy remain on the official Wrangler action', () =>
   const officialUse = `cloudflare/wrangler-action@${WRANGLER_ACTION_SHA}`;
   const rootLock = packageLock.packages[''];
   const lockedWrangler = packageLock.packages['node_modules/wrangler'];
-  const installDependenciesIndex = deploy.indexOf('run: npm ci --ignore-scripts --no-audit --no-fund');
-  const wranglerActionIndex = deploy.indexOf(`uses: ${officialUse}`);
+  const deployJob = assertStepOrderWithinJob(
+    deploy,
+    'deploy',
+    'run: npm ci --ignore-scripts --no-audit --no-fund',
+    `uses: ${officialUse}`,
+  );
 
   assert.equal(occurrences(deploy, officialUse), 1);
+  assert.equal(occurrences(deployJob, officialUse), 1);
   assert.match(deploy, /apiToken: \$\{\{ secrets\.CLOUDFLARE_API_TOKEN \}\}/u);
   assert.match(deploy, /accountId: \$\{\{ secrets\.CLOUDFLARE_ACCOUNT_ID \}\}/u);
   assert.match(deploy, /packageManager: npm/u);
@@ -81,9 +149,6 @@ test('the D1 migration and deploy remain on the official Wrangler action', () =>
     /preCommands: wrangler d1 migrations apply bigdata_db --remote --config wrangler\.json[\s\S]*command: >-[\s\S]*deploy --strict --config wrangler\.json[\s\S]*--tag \$\{\{ github\.sha \}\}[\s\S]*--message "GitHub Actions run \$\{\{ github\.run_id \}\} for \$\{\{ github\.sha \}\}"/u,
   );
   assert.doesNotMatch(deploy, /wranglerVersion:/u);
-  assert.ok(installDependenciesIndex >= 0);
-  assert.ok(wranglerActionIndex >= 0);
-  assert.ok(installDependenciesIndex < wranglerActionIndex);
   assert.match(packageJson.devDependencies.wrangler, /^\^4\.\d+\.\d+$/u);
   assert.equal(rootLock.devDependencies.wrangler, packageJson.devDependencies.wrangler);
   assert.equal(installedWrangler.version, lockedWrangler.version);
@@ -91,6 +156,58 @@ test('the D1 migration and deploy remain on the official Wrangler action', () =>
   assert.equal(lockedWrangler.dev, true);
   assert.match(lockedWrangler.integrity, /^sha512-/u);
   assert.equal(occurrences(actionsLock, officialUse), 2);
+});
+
+test('the local Wrangler installation cannot come from a different job', () => {
+  const officialUse = `cloudflare/wrangler-action@${WRANGLER_ACTION_SHA}`;
+  const splitRunnerWorkflow = `jobs:
+  prepare:
+    steps:
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+  deploy:
+    steps:
+      - uses: ${officialUse}
+`;
+
+  assert.throws(
+    () =>
+      assertStepOrderWithinJob(
+        splitRunnerWorkflow,
+        'deploy',
+        'run: npm ci --ignore-scripts --no-audit --no-fund',
+        `uses: ${officialUse}`,
+      ),
+    /deploy job must contain run: npm ci/u,
+  );
+});
+
+test('the local Wrangler installation must precede the action in the deploy job', () => {
+  const officialUse = `cloudflare/wrangler-action@${WRANGLER_ACTION_SHA}`;
+  const reversedStepsWorkflow = `jobs:
+  deploy:
+    steps:
+      - uses: ${officialUse}
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+`;
+
+  assert.throws(
+    () =>
+      assertStepOrderWithinJob(
+        reversedStepsWorkflow,
+        'deploy',
+        'run: npm ci --ignore-scripts --no-audit --no-fund',
+        `uses: ${officialUse}`,
+      ),
+    /npm ci .* must precede .*wrangler-action.* in the deploy job/u,
+  );
+});
+
+test('the deploy job must exist exactly once', () => {
+  assert.throws(() => workflowJob('jobs:\n  prepare:\n    steps: []\n', 'deploy'), /exactly one deploy job/u);
+  assert.throws(
+    () => workflowJob('jobs:\n  deploy:\n    steps: []\n  deploy:\n    steps: []\n', 'deploy'),
+    /exactly one deploy job/u,
+  );
 });
 
 test('no direct Slack workflow is invented for this repository', () => {

@@ -26,7 +26,7 @@ This document records the current quality posture of `sponsor-motor` for the Mer
 | Item                            | Status                    | Evidence                                                                                                                            |
 | ------------------------------- | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | Orders API only                 | Preserved                 | `POST /api/orders` creates `/v1/orders`; `POST /api/preferences` returns 410.                                                       |
-| Secure Fields / PCI             | Preserved                 | `/sponsor` uses MercadoPago.js V2 Card Payment Brick; card number, expiry and CVV are never handled by LCV code.                    |
+| Secure Fields / PCI             | Preserved                 | `/sponsor` uses MercadoPago.js V2 Card Payment Brick; card number, expiry and CVV are never handled by code operated by LCV Ideas & Software. |
 | Backend SDK                     | Implemented               | Order creation and lookups use the official `mercadopago` Node.js SDK pinned to `3.4.0`.                                            |
 | Idempotency                     | Preserved                 | `Order.create` receives `requestOptions.idempotencyKey = externalReference`; the SDK emits `X-Idempotency-Key`.                     |
 | 3DS                             | Preserved and hardened    | `validation=on_fraud_risk`, `liability_shift=required`, documented challenge URL path, status polling and webhook processing.       |
@@ -86,7 +86,7 @@ curl -X POST https://sponsor-motor.lcv.app.br/api/orders/ORD-123/cancel \
 
 ### Mercado Pago logo on `/sponsor`
 
-The official Mercado Pago logo is now displayed near the "Apoiar agora" panel header on the public form, linking to `mercadopago.com.br`. This addresses the "Logotipos oficiais do Mercado Pago" recommendation while keeping LCV branding dominant in the page chrome.
+The official Mercado Pago logo is now displayed near the "Apoiar agora" panel header on the public form, linking to `mercadopago.com.br`. This addresses the "Logotipos oficiais do Mercado Pago" recommendation while keeping LCV Ideas & Software branding dominant in the page chrome.
 
 ### v01.02.00 status table
 

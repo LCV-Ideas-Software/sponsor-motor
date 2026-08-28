@@ -4,6 +4,10 @@
 
 ### Changed
 
+- `THIRDPARTY.md` now records the MIT license provenance of
+  `mercadopago@3.4.0` from the exact npm tarball locked by SRI and its immutable
+  upstream commit, while preserving that the package metadata omits the
+  `license` field.
 - O espelho pós-deploy do Linear Release passa a usar a action oficial da
   Linear, pinada por SHA na v0.16.0, preservando o SHA exato publicado, o modo
   best-effort e o deploy oficial do Wrangler com migração D1 anterior.

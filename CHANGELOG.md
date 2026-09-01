@@ -4,6 +4,9 @@
 
 ### Changed
 
+- O inventário de terceiros foi sincronizado com as versões diretas atuais de
+  `hono`, `@biomejs/biome` e `@cloudflare/workers-types`, sem alteração das
+  licenças declaradas.
 - `THIRDPARTY.md` now records the MIT license provenance of
   `mercadopago@3.4.0` from the exact npm tarball locked by SRI and its immutable
   upstream commit, while preserving that the package metadata omits the

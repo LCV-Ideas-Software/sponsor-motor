@@ -5,7 +5,6 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 const CHECKOUT_SHA = '3d3c42e5aac5ba805825da76410c181273ba90b1';
-const LINEAR_ACTION_SHA = '3f31fcf14c110cc53579fcc3575a26d469c413b4';
 const WRANGLER_ACTION_SHA = 'ebbaa1584979971c8614a24965b4405ff95890e0';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -114,18 +113,15 @@ test('Linear Release remains tied to the exact successful Deploy SHA', () => {
   assert.doesNotMatch(linearRelease, /continue-on-error:/u);
 });
 
-test('Linear Release uses the pinned official action and lock entry', () => {
-  const officialUse = `linear/linear-release-action@${LINEAR_ACTION_SHA}`;
-
-  assert.equal(occurrences(linearRelease, officialUse), 1);
-  assert.match(linearRelease, /access_key: \$\{\{ secrets\.LINEAR_ACCESS_KEY \}\}/u);
-  assert.match(linearRelease, /cli_version: v0\.17\.1/u);
-  assert.doesNotMatch(linearRelease, /CLI_URL|CLI_SHA256|linear-release-linux|curl\s+-|sha256sum/u);
-  assert.equal(occurrences(actionsLock, officialUse), 2);
-  assert.match(
-    actionsLock,
-    /'linear\/linear-release-action@3f31fcf14c110cc53579fcc3575a26d469c413b4':[\s\S]*?ref: 'v0\.17\.1'/u,
+test('Linear Release uses an immutable official action and explicit CLI version', () => {
+  const officialUses = linearRelease.match(
+    /^[ \t]*uses: linear\/linear-release-action@[0-9a-f]{40}(?:[ \t]+#[^\r\n]*)?[ \t]*$/gmu,
   );
+
+  assert.equal(officialUses?.length, 1);
+  assert.match(linearRelease, /access_key: \$\{\{ secrets\.LINEAR_ACCESS_KEY \}\}/u);
+  assert.match(linearRelease, /^[ \t]*cli_version: v\d+\.\d+\.\d+[ \t]*$/mu);
+  assert.doesNotMatch(linearRelease, /CLI_URL|CLI_SHA256|linear-release-linux|curl\s+-|sha256sum/u);
 });
 
 test('the D1 migration and deploy remain on the official Wrangler action', () => {

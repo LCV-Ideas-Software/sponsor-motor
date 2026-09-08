@@ -4,6 +4,9 @@
 
 ### Changed
 
+- Removed the stale GitHub Actions dependency lockfile, its generated workflow
+  headers and lock-only test assertions that blocked Dependabot updates;
+  immutable action SHA pins and execution settings remain unchanged.
 - O contrato do Linear Release aceita atualizações do Dependabot sem fixar uma
   versão específica no teste; mantém a action oficial por SHA e o CLI explícito,
   agora em v0.17.2, sem exigir a entrada obsoleta do Actions lock para a Linear.

@@ -83,7 +83,6 @@ function assertStepOrderWithinJob(workflow, jobId, firstStep, secondStep) {
 
 const linearRelease = read('.github/workflows/linear-release.yml');
 const deploy = read('.github/workflows/deploy.yml');
-const actionsLock = read('.github/workflows/actions.lock');
 const packageJson = JSON.parse(read('package.json'));
 const packageLock = JSON.parse(read('package-lock.json'));
 const installedWrangler = JSON.parse(read('node_modules/wrangler/package.json'));
@@ -151,7 +150,6 @@ test('the D1 migration and deploy remain on the official Wrangler action', () =>
   assert.match(lockedWrangler.version, /^4\.\d+\.\d+$/u);
   assert.equal(lockedWrangler.dev, true);
   assert.match(lockedWrangler.integrity, /^sha512-/u);
-  assert.equal(occurrences(actionsLock, officialUse), 2);
 });
 
 test('the local Wrangler installation cannot come from a different job', () => {

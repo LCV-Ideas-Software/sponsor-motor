@@ -4,6 +4,9 @@
 
 ### Changed
 
+- O contrato do Linear Release aceita atualizações do Dependabot sem fixar uma
+  versão específica no teste; mantém a action oficial por SHA e o CLI explícito,
+  agora em v0.17.2, sem exigir a entrada obsoleta do Actions lock para a Linear.
 - O inventário de terceiros foi sincronizado com as versões diretas atuais de
   `hono`, `@biomejs/biome` e `@cloudflare/workers-types`, sem alteração das
   licenças declaradas.
@@ -12,8 +15,8 @@
   upstream commit, while preserving that the package metadata omits the
   `license` field.
 - O espelho pós-deploy do Linear Release passa a usar a action oficial da
-  Linear, pinada por SHA na v0.16.0, preservando o SHA exato publicado, o modo
-  best-effort e o deploy oficial do Wrangler com migração D1 anterior.
+  Linear, pinada por SHA na v0.17.2, preservando o SHA exato publicado, a falha
+  visível e o deploy oficial do Wrangler com migração D1 anterior.
 - As instruções para agentes passam a referenciar somente o serviço atual
   `cross-review` e dispensam sua execução em manutenção mecânica de baixo risco.
 - A permissão somente leitura exigida pelo workflow oficial do OpenSSF

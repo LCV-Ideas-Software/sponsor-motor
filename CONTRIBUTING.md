@@ -13,4 +13,19 @@ This repository is maintained by LCV Ideas & Software. Contributions should pres
 
 ## Validation
 
-Before opening or merging changes, run the repository-specific checks documented in the README, package scripts, or workflow files. For security-sensitive changes, include evidence of the checks performed in the pull request.
+Before proposing publication, run `npm run check`, `npm run biome`,
+`npm run format:public:check` and
+`npm exec -- wrangler deploy --dry-run --strict`. The product suite includes
+payment, webhook, storage and admin CLI tests; do not exercise production
+payments or remote D1 migrations as tests.
+
+Present the complete local change report for operator approval before any
+commit, push or PR. GitHub settings changes require separate prior approval.
+For security-sensitive changes, retain private evidence under `SECURITY.md`.
+
+## Inbound rights
+
+The project remains licensed under AGPL-3.0-or-later. Opening a contribution
+does not transfer copyright. Material not demonstrably owned by LCV Ideas &
+Software requires a separately executed written inbound license or assignment,
+verified before merge, as described in [INBOUND.md](./INBOUND.md).

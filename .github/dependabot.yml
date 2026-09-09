@@ -3,9 +3,10 @@ updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "daily"
-      time: "01:00"
-      timezone: "America/Los_Angeles"
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "America/Sao_Paulo"
     cooldown:
       default-days: 7
       exclude:
@@ -18,25 +19,25 @@ updates:
       prefix: "deps"
       include: "scope"
     open-pull-requests-limit: 10
+    rebase-strategy: auto
     groups:
-      codeql-action:
+      minor-e-patch:
         applies-to: version-updates
         patterns:
-          - "github/codeql-action*"
-      codeql-action-security-updates:
-        applies-to: security-updates
-        patterns:
-          - "github/codeql-action*"
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
 
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
-      interval: "daily"
-      time: "01:00"
-      timezone: "America/Los_Angeles"
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "America/Sao_Paulo"
     cooldown:
       default-days: 7
-      semver-patch-days: 3
     labels:
       - "dependencies"
       - "npm"
@@ -44,26 +45,13 @@ updates:
       prefix: "deps"
       include: "scope"
     versioning-strategy: increase
+    rebase-strategy: auto
     groups:
-      worker-tooling:
+      minor-e-patch:
+        applies-to: version-updates
         patterns:
-          - "@biomejs/biome"
-          - "@cloudflare/workers-types"
-          - "prettier"
-          - "typescript"
-          - "vitest"
-          - "wrangler"
+          - "*"
         update-types:
-          - "major"
-          - "minor"
-          - "patch"
-      runtime:
-        patterns:
-          - "hono"
-          - "mercadopago"
-          - "zod"
-        update-types:
-          - "major"
           - "minor"
           - "patch"
     open-pull-requests-limit: 10

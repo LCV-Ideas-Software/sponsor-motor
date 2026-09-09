@@ -1,29 +1,26 @@
 name: CI
 
 on:
-  push:
-    branches:
-      - main
   pull_request:
     branches:
       - main
-  merge_group:
     types:
-      - checks_requested
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+      - edited
+  workflow_dispatch:
 
 permissions: {}
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-  NODE_OPTIONS: "--no-deprecation"
-
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
-  verify:
-    name: Format, lint, typecheck and test
+  ci:
+    name: CI
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -39,7 +36,7 @@ jobs:
         with:
           node-version: 24
           check-latest: true
-          cache: npm
+          package-manager-cache: false
 
       - name: Install dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
@@ -49,3 +46,9 @@ jobs:
 
       - name: Run repository checks
         run: npm run check
+
+      - name: Check public page formatting
+        run: npm run format:public:check
+
+      - name: Validate Worker bundle without deploying
+        run: npm exec -- wrangler deploy --dry-run --strict

@@ -4,26 +4,29 @@
 
 ### Changed
 
-- Removed the stale GitHub Actions dependency lockfile, its generated workflow
-  headers and lock-only test assertions that blocked Dependabot updates;
-  immutable action SHA pins and execution settings remain unchanged.
-- O contrato do Linear Release aceita atualizações do Dependabot sem fixar uma
-  versão específica no teste; mantém a action oficial por SHA e o CLI explícito,
-  agora em v0.17.2, sem exigir a entrada obsoleta do Actions lock para a Linear.
-- O inventário de terceiros foi sincronizado com as versões diretas atuais de
-  `hono`, `@biomejs/biome` e `@cloudflare/workers-types`, sem alteração das
-  licenças declaradas.
-- `THIRDPARTY.md` now records the MIT license provenance of
-  `mercadopago@3.4.0` from the exact npm tarball locked by SRI and its immutable
-  upstream commit, while preserving that the package metadata omits the
-  `license` field.
-- O espelho pós-deploy do Linear Release passa a usar a action oficial da
-  Linear, pinada por SHA na v0.17.2, preservando o SHA exato publicado, a falha
-  visível e o deploy oficial do Wrangler com migração D1 anterior.
-- As instruções para agentes passam a referenciar somente o serviço atual
-  `cross-review` e dispensam sua execução em manutenção mecânica de baixo risco.
-- A permissão somente leitura exigida pelo workflow oficial do OpenSSF
-  Scorecard passa a ter uma exceção Zizmor pontual e documentada.
+- Align repository-local governance with the fleet's native GitHub standard:
+  PR CI, main-only serialized Deploy, native Pages, Dependency Review, Zizmor,
+  least-privilege Scorecard SARIF and exact-successful-Deploy Linear Release.
+- Schedule Dependabot weekly on Monday at 06:00, with seven-day cooldown,
+  minor/patch groups, separate majors and native same-repository auto-merge
+  subject to GitHub's effective required checks.
+- Retire the advanced CodeQL workflow in favor of existing Default setup,
+  merge-group triggers, the standalone Public Format workflow and the custom
+  workflow-regex contract. Public HTML checks remain in normal CI and Deploy;
+  npm's dependency lockfile and all product/admin CLI tests remain.
+- Replace the custom current-main deployment check with the approved native
+  serialization pattern. Historical manual reruns are not automatically blocked;
+  the operator must verify the chosen revision. D1 migrations still precede
+  the official Wrangler deployment, with no payment or database behavior change.
+- Update the existing sharp override to 0.35.4 and its matching platform
+  packages via npm. Keep application version 1.2.8 and direct runtime
+  dependencies unchanged.
+- Synchronize the maintained direct-dependency inventory and active Mercado
+  Pago documentation to SDK 3.6.0, including its MIT license source and hash;
+  retain the historical assessment in Discussion #217. Do not claim automatic
+  or exhaustive future Worker-bundle license coverage.
+- Document the single-operator, independent-repository policy, mandatory
+  pre-publication/configuration approval and repository-local inbound rights.
 
 ## [v01.02.08] - 2026-08-21
 

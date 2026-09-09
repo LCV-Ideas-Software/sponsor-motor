@@ -8,7 +8,7 @@
 [![CI](https://github.com/LCV-Ideas-Software/sponsor-motor/actions/workflows/ci.yml/badge.svg)](https://github.com/LCV-Ideas-Software/sponsor-motor/actions/workflows/ci.yml)
 [![Deploy](https://github.com/LCV-Ideas-Software/sponsor-motor/actions/workflows/deploy.yml/badge.svg)](https://github.com/LCV-Ideas-Software/sponsor-motor/actions/workflows/deploy.yml)
 [![Pages](https://github.com/LCV-Ideas-Software/sponsor-motor/actions/workflows/pages.yml/badge.svg)](https://github.com/LCV-Ideas-Software/sponsor-motor/actions/workflows/pages.yml)
-[![CodeQL](https://github.com/LCV-Ideas-Software/sponsor-motor/actions/workflows/codeql.yml/badge.svg)](https://github.com/LCV-Ideas-Software/sponsor-motor/actions/workflows/codeql.yml)
+[![CodeQL](https://img.shields.io/badge/CodeQL-Default%20setup-2ea44f)](https://github.com/LCV-Ideas-Software/sponsor-motor/security/code-scanning)
 [![runtime: Cloudflare Worker](https://img.shields.io/badge/runtime-Cloudflare%20Worker-orange.svg)](https://workers.cloudflare.com/)
 [![payments: Mercado Pago](https://img.shields.io/badge/payments-Mercado%20Pago-009ee3.svg)](https://www.mercadopago.com.br/developers/)
 [![license: AGPL-3.0-or-later](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](./LICENSE)
@@ -55,7 +55,7 @@ The internal application version history at a glance:
 - Secrets Store: `mp-access-token`, `mercadopago-webhook-secret`, `mercadopago-public-key`.
 - Backend Mercado Pago: SDK oficial `mercadopago`, com `nodejs_compat` no Worker para suportar a biblioteca Node.
 - Frontend Mercado Pago: a página `https://www.lcv.dev/sponsor` carrega MercadoPago.js V2 e renderiza Card Payment Brick com Secure Fields.
-- Backend principal: `POST /api/orders` cria uma order com `Order.create` da SDK oficial `mercadopago@3.4.0`, cartão tokenizado, item categorizado e 3DS por risco.
+- Backend principal: `POST /api/orders` cria uma order com `Order.create` da SDK oficial `mercadopago@3.6.0`, cartão tokenizado, item categorizado e 3DS por risco.
 - Fallback Checkout Pro: `POST /api/preferences` permanece bloqueado com `410 Gone`; a integração ativa é somente Checkout Transparente + Orders API.
 - O custom domain `sponsor-motor.lcv.app.br` fica declarado em `wrangler.json` como `custom_domain: true`; o token de deploy precisa manter permissão de gerenciamento de Workers/Custom Domains na zona `lcv.app.br`.
 
@@ -111,8 +111,11 @@ O endpoint `POST /api/webhooks/mercadopago` valida `x-signature`/`x-request-id`,
 ## Desenvolvimento
 
 ```powershell
-npm ci
+npm ci --ignore-scripts --no-audit --no-fund
 npm run check
+npm run biome
+npm run format:public:check
+npm exec -- wrangler deploy --dry-run --strict
 ```
 
 ## Qualidade da integração Mercado Pago
@@ -132,6 +135,33 @@ Resumo dos pontos críticos preservados:
 ## Deploy
 
 O workflow `Deploy` usa o binding oficial versionado para `bigdata_db`, aplica migrations remotas e publica o Worker com o Wrangler Action oficial. O UUID da D1 e identificador, nao credencial; tokens continuam fora do repositorio. Como migrations e deploy sao operacoes sequenciais, toda migration deve ser retrocompativel com a revisao anterior do Worker.
+
+O deploy ocorre somente em pushes para `main`, com execucoes serializadas sem
+interromper uma publicacao em curso. A action oficial usa o Wrangler instalado
+pelo `npm ci` do mesmo job, conforme o lockfile. A serializacao nativa nao
+rejeita automaticamente a reexecucao de um commit antigo: o operador deve
+conferir a revisao antes de solicitar uma nova execucao.
+
+## Governanca nativa
+
+- CI em pull requests valida formatacao, tipos, testes e o bundle do Worker;
+  a mesma validacao antecede a migracao D1 e o deploy de producao.
+- O site institucional de `site/` tem build em PR e deploy nativo do GitHub
+  Pages apenas a partir de `main`; nao e o frontend de pagamentos.
+- Dependabot verifica npm e Actions semanalmente, segunda-feira as 06:00,
+  com cooldown de sete dias; `actions/*` e `github/*` ficam fora do cooldown.
+  Minor/patch sao agrupados e majors ficam separados. O auto-merge nativo
+  atende PRs do proprio Dependabot e depende dos checks efetivos do GitHub;
+  agrupamento e elegibilidade de merge sao regras distintas.
+- CodeQL usa Default setup. Dependency Review, Zizmor e Scorecard usam actions
+  oficiais, com pins SHA e permissoes locais minimas. Nao ha merge queue,
+  `actions.lock`, controlador central ou teste customizado de texto de workflow.
+- Linear Release registra somente o SHA publicado por um Deploy bem-sucedido.
+  As integracoes nativas Linear–GitHub e Slack–GitHub permanecem preservadas.
+- Alteracoes sao preparadas localmente e apresentadas ao operador antes de
+  commit, push ou PR. Configuracoes do GitHub exigem autorizacao previa separada.
+- [THIRDPARTY.md](./THIRDPARTY.md) e um inventario direto mantido no repositorio,
+  nao um relatorio automatico e exaustivo do bundle ou das versoes futuras.
 
 ## Segurança
 
@@ -153,6 +183,7 @@ O workflow `Deploy` usa o binding oficial versionado para `bigdata_db`, aplica m
 - **Code of conduct**: see [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md).
 - **Changelog**: [CHANGELOG.md](./CHANGELOG.md).
 - **Contributing**: see [CONTRIBUTING.md](./CONTRIBUTING.md).
+- **Inbound rights**: see [INBOUND.md](./INBOUND.md); copyright is not transferred by opening a PR.
 - **Sponsorship**: see the repo's `Sponsor` button or [central sponsor page](https://www.lcv.dev/sponsor).
 - **Action pinning**: all GitHub Actions are pinned by full SHA per supply-chain hardening baseline.
 - **Code owners**: [.github/CODEOWNERS](.github/CODEOWNERS).

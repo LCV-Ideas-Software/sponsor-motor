@@ -5,57 +5,72 @@ Pointer for AI agents working in this repository.
 ## Project
 
 - Repository: `https://github.com/LCV-Ideas-Software/sponsor-motor`
-- App: Sponsor Motor — Cloudflare Worker de pagamentos de patrocinio via Mercado Pago
+- App: Sponsor Motor — Cloudflare Worker for sponsor payments through Mercado Pago Orders API
 - Branch: `main`
 - License: AGPL-3.0-or-later
 
 ## Runtime Shape
 
-Cloudflare Worker que processa pagamentos de patrocinio via Mercado Pago (Card
-Payment Brick). Source em `src/`; deploy exclusivamente via GitHub Actions.
+The Worker processes sponsor payments through Mercado Pago (Card Payment Brick).
+Source lives in `src/`; production deployment is exclusively through GitHub
+Actions. Preserve webhook verification, idempotency, 3DS, operator-only refund
+and cancellation endpoints, the admin CLI, D1 migrations and Secrets Store
+bindings. The independent GitHub Pages site lives in `site/`.
 
 ## Mandatory Gates
 
-```bash
+```powershell
 npm run check
 npm run biome
 npm run format:public:check
+npm exec -- wrangler deploy --dry-run --strict
 ```
 
 ## Workspace Policy
 
-Follow the workspace directives that govern the private checkout hosting this
-public repository. In particular: use `ultrabrain` for every change; use only
-the current `cross-review` service when independent review is proportionate to
-the risk (mechanical action swaps and similarly simple maintenance are exempt);
-never self-review in an applicable cross-review gate; use `main` as the
-deployment branch; and Commit & Sync only after the requested final audit.
+The current fleet-native standard supersedes obsolete repository-specific
+governance. Prefer official native GitHub capabilities and official supported
+third-party tools. New custom governance scripts, generators and controllers
+require the operator's explicit prior approval. Never restore `actions.lock`,
+its consumers, a merge queue or the retired workflow-regex test suite. npm's
+dependency lockfile remains required and is regenerated with npm.
+
+There is one human operator. Do not add mandatory human self-review or depend
+on a controller in another repository. Use Ultrabrain for substantive reasoning
+and cross-review only when complexity justifies it; send complete raw evidence
+and use English internally. Preserve external evidence verbatim.
+
+Prepare changes locally. Before any commit, push or PR, present the complete
+change report and obtain the operator's approval. GitHub configuration changes,
+including environment removal and required-check rules, require separate prior
+approval. Do not run production payment requests or remote D1 migrations as
+tests. Do not run local `cargo` or `rustc`, use Codespaces, or change Git signing
+configuration. Remove only this execution's preserved, no-longer-needed branches.
+
+CI validates pull requests; Deploy validates and publishes pushes to `main`.
+Dependabot groups minor/patch version updates and leaves majors separate;
+grouping does not restrict native auto-merge eligibility. The local workflow
+arms same-repository Dependabot PRs, subject to GitHub's effective required
+checks. CodeQL uses Default setup; Scorecard and Zizmor upload SARIF directly.
+Linear Release follows the exact successful production Deploy. Preserve the
+native Linear–GitHub and Slack–GitHub integrations. This repository publishes
+neither npm packages nor Windows artifacts.
 
 ## Registro de trabalho (GitHub Projects, Issues e Discussions)
 
-A equipe e composta por tres membros: o **operador** (humano), **Claude Code** e **ChatGPT-Codex**.
-Quase todo trabalho acontece em par (operador+Claude ou operador+Codex). O que fica so no
-transcript da sessao se perde para o outro membro. Por isso o registro abaixo e **obrigatorio**.
+Ha um unico operador humano, auxiliado por Claude e Codex. O registro duravel
+do trabalho e obrigatorio e deve preservar propriedade, prioridade e historico.
 
 Quadro deste repositorio: `https://github.com/orgs/LCV-Ideas-Software/projects/8`
 Quadro consolidado da organizacao: `https://github.com/orgs/LCV-Ideas-Software/projects/17`
 
 ### Os quatro gatilhos
 
-**G1 — fim de bloco de trabalho.** Publique um _status update_ no quadro deste repositorio,
-dizendo o que foi feito, o que ficou pendente e o que o proximo agente precisa saber:
-
-```bash
-gh api graphql -f query='
-  mutation($id:ID!, $body:String!) {
-    createProjectV2StatusUpdate(input:{projectId:$id, status:ON_TRACK, body:$body}) {
-      statusUpdate { id }
-    }
-  }' -f id="$PROJECT_ID" -f body="..."
-```
-
-Use `AT_RISK` ou `OFF_TRACK` quando for o caso. O `PROJECT_ID` sai de
-`gh api graphql -f query='query{organization(login:"LCV-Ideas-Software"){projectV2(number:8){id}}}'`.
+**G1 — mudanca material.** Atualize o registro canonico existente e os vinculos
+GitHub/Linear, incluindo Projects, Issues, Discussions, Teams, Initiatives e
+Cycles quando pertinente. Use o rotulo `Codex` no trabalho do Codex. Registre
+evidencias, pendencias e limites de escopo; nao altere automaticamente a saude,
+prioridade ou o estado dos containers por concluir apenas uma tarefa.
 
 **G2 — achado nao corrigido.** Todo bug, falha, limitacao de plataforma ou comportamento
 inesperado que voce encontrar e **nao** resolver na hora vira issue imediatamente, com

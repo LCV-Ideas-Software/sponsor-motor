@@ -23,8 +23,7 @@
     "biome": "biome check .",
     "biome:write": "biome check --write .",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run && npm run test:official-actions",
-    "test:official-actions": "node --test scripts/official-actions-contract.mjs",
+    "test": "vitest run",
     "check": "npm run format:check && npm run lint && npm run typecheck && npm test",
     "deploy": "wrangler deploy",
     "db:migrate:remote": "wrangler d1 migrations apply bigdata_db --remote"
@@ -46,6 +45,6 @@
     "node": ">=22"
   },
   "overrides": {
-    "sharp": "0.35.3"
+    "sharp": "0.35.4"
   }
 }

@@ -16,9 +16,11 @@
 - Align repository-local governance with the fleet's native GitHub standard:
   PR CI, main-only serialized Deploy, native Pages, Dependency Review, Zizmor,
   least-privilege Scorecard SARIF and exact-successful-Deploy Linear Release.
-- Schedule Dependabot weekly on Monday at 06:00, with seven-day cooldown,
+- Schedule Dependabot every day, including weekends, at 05:00 in fixed UTC-03:00,
+  with separate security-update groups per ecosystem and seven-day version cooldown,
   minor/patch groups, separate majors and native same-repository auto-merge
   subject to GitHub's effective required checks.
+- Use the existing GitHub Actions label for Dependabot Actions pull requests.
 - Retire the advanced CodeQL workflow in favor of existing Default setup,
   merge-group triggers, the standalone Public Format workflow and the custom
   workflow-regex contract. Public HTML checks remain in normal CI and Deploy;

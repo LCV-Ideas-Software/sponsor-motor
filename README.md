@@ -148,9 +148,14 @@ conferir a revisao antes de solicitar uma nova execucao.
   a mesma validacao antecede a migracao D1 e o deploy de producao.
 - O site institucional de `site/` tem build em PR e deploy nativo do GitHub
   Pages apenas a partir de `main`; nao e o frontend de pagamentos.
-- Dependabot verifica npm e Actions semanalmente, segunda-feira as 06:00,
+- Dependabot verifica npm e Actions todos os dias, inclusive fins de semana,
+  às 05h, no fuso fixo UTC−03:00,
   com cooldown de sete dias; `actions/*` e `github/*` ficam fora do cooldown.
-  Minor/patch sao agrupados e majors ficam separados. O auto-merge nativo
+  Minor/patch de versão sao agrupados e majors ficam separados. Atualizações
+  de segurança são agrupadas separadamente por ecossistema, sem aguardar esse
+  agendamento ou cooldown. Se uma atualização agrupada falhar, diagnosticar e
+  ajustar o agrupamento nativo para liberar as demais com os checks exigidos.
+  O auto-merge nativo
   atende PRs do proprio Dependabot e depende dos checks efetivos do GitHub;
   agrupamento e elegibilidade de merge sao regras distintas.
 - CodeQL usa Default setup. Dependency Review, Zizmor e Scorecard usam actions

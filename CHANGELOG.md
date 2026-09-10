@@ -10,6 +10,9 @@
 
 ### Changed
 
+- Update the official CodeQL Action to v4.38.0 and Zizmor Action to v0.6.4,
+  retaining full commit pins and the existing workflow behavior.
+
 - Align repository-local governance with the fleet's native GitHub standard:
   PR CI, main-only serialized Deploy, native Pages, Dependency Review, Zizmor,
   least-privilege Scorecard SARIF and exact-successful-Deploy Linear Release.

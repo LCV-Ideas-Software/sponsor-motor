@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Synchronize the third-party inventory with the already-merged Workers types
+  and Wrangler development dependency updates; runtime dependencies and their
+  license notices remain unchanged.
+
 ### Changed
 
 - Align repository-local governance with the fleet's native GitHub standard:

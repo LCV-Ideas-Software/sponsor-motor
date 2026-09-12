@@ -10,11 +10,11 @@ Worker-bundle report; dependency changes require a new inventory review.
 | mercadopago               | 3.6.0         | MIT               | runtime     | https://github.com/mercadopago/sdk-nodejs/blob/c8da864cd370d179ad10e182e4793510d6d03bfe/LICENSE |
 | zod                       | ^4.5.4        | MIT               | runtime     | https://www.npmjs.com/package/zod                                                               |
 | @biomejs/biome            | ^2.5.12       | MIT OR Apache-2.0 | development | https://www.npmjs.com/package/@biomejs/biome                                                    |
-| @cloudflare/workers-types | ^5.20260902.1 | MIT OR Apache-2.0 | development | https://www.npmjs.com/package/@cloudflare/workers-types                                         |
+| @cloudflare/workers-types | ^5.20260904.1 | MIT OR Apache-2.0 | development | https://www.npmjs.com/package/@cloudflare/workers-types                                         |
 | prettier                  | ^3.9.6        | MIT               | development | https://www.npmjs.com/package/prettier                                                          |
 | typescript                | ^7.0.2        | Apache-2.0        | development | https://www.npmjs.com/package/typescript                                                        |
-| vitest                    | ^4.1.11       | MIT               | development | https://www.npmjs.com/package/vitest                                                            |
-| wrangler                  | ^4.128.0      | MIT OR Apache-2.0 | development | https://www.npmjs.com/package/wrangler                                                          |
+| vitest                    | ^5.0.0        | MIT               | development | https://www.npmjs.com/package/vitest                                                            |
+| wrangler                  | ^4.129.0      | MIT OR Apache-2.0 | development | https://www.npmjs.com/package/wrangler                                                          |
 
 ## Provenance notes
 

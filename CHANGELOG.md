@@ -4,7 +4,7 @@
 
 ### Fixed
 
-- Synchronize the third-party inventory with the already-merged Workers types,
+- Synchronize the third-party inventory with the already-merged Workers types 5.20260906.1,
   Vitest and Wrangler development dependency updates; runtime dependencies and their
   license notices remain unchanged.
 

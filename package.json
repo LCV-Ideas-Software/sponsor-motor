@@ -30,12 +30,12 @@
   },
   "dependencies": {
     "hono": "^4.13.7",
-    "mercadopago": "3.6.0",
-    "zod": "^4.5.4"
+    "mercadopago": "3.6.1",
+    "zod": "^4.6.1"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.12",
-    "@cloudflare/workers-types": "^5.20260908.1",
+    "@cloudflare/workers-types": "^5.20260910.1",
     "prettier": "^3.9.6",
     "typescript": "^7.0.2",
     "vitest": "^5.0.0",

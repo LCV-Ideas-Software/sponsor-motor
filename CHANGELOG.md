@@ -10,6 +10,11 @@
 
 ### Changed
 
+- Declare Wrangler with the exact pin `4.130.0` instead of the `^4.130.0` range,
+  regenerate the lockfile with npm (the installed version is unchanged) and align
+  the third-party inventory row. This standardizes the manifest with the rest of
+  the fleet now that Deploy uses the lockfile Wrangler (SPONSOR-28 / #263, GIT-230).
+
 - Update the official CodeQL Action to v4.38.0 and Zizmor Action to v0.6.4,
   retaining full commit pins and the existing workflow behavior.
 

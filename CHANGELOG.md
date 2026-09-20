@@ -2,7 +2,24 @@
 
 ## [Unreleased]
 
+### Added
+
+- Reproduce in full the MIT license texts of the three packages bundled into the
+  deployed Worker — `hono`, `mercadopago` and `zod` — read from the artifacts
+  `npm ci` installs at the versions the lockfile resolves, with byte counts and
+  SHA-256 for each. The inventory previously carried SPDX identifiers and links
+  but no notice text, so the notices did not travel with the software. The
+  development dependencies are build and test tooling, are not part of the
+  deployed bundle, and are recorded as such (LCV-207).
+
 ### Fixed
+
+- Align the inventory with the lockfile: `mercadopago` 3.6.0 to 3.6.1 and
+  `wrangler` 4.130.0 to 4.131.1. The `mercadopago` provenance note moves with
+  it — new SRI, and the upstream commit `59a1f91e`, which both the npm
+  `gitHead` and the Git tag `3.6.1` resolve to. Its `LICENSE` hash is unchanged
+  from the `3.6.0` review, so the licence text did not change across the bump,
+  only the identifier did (LCV-207).
 
 - Synchronize the third-party inventory with the already-merged Workers types 5.20260907.1,
   Vitest and Wrangler development dependency updates; runtime dependencies and their

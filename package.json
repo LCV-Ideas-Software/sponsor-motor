@@ -39,7 +39,7 @@
     "prettier": "^3.9.6",
     "typescript": "^7.0.2",
     "vitest": "^5.0.0",
-    "wrangler": "4.136.1"
+    "wrangler": "4.136.2"
   },
   "engines": {
     "node": ">=22"

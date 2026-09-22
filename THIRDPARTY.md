@@ -14,7 +14,7 @@ Worker-bundle report; dependency changes require a new inventory review.
 | prettier                  | ^3.9.6        | MIT               | development | https://www.npmjs.com/package/prettier                                                          |
 | typescript                | ^7.0.2        | Apache-2.0        | development | https://www.npmjs.com/package/typescript                                                        |
 | vitest                    | ^5.0.0        | MIT               | development | https://www.npmjs.com/package/vitest                                                            |
-| wrangler                  | 4.136.1       | MIT OR Apache-2.0 | development | https://www.npmjs.com/package/wrangler                                                          |
+| wrangler                  | 4.136.2       | MIT OR Apache-2.0 | development | https://www.npmjs.com/package/wrangler                                                          |
 
 ## Provenance notes
 

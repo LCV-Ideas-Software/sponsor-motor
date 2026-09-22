@@ -15,7 +15,7 @@
 ### Fixed
 
 - Align the inventory with the lockfile: `mercadopago` 3.6.0 to 3.6.1 and
-  `wrangler` to 4.136.1. The `mercadopago` provenance note moves with
+  `wrangler` to 4.136.2. The `mercadopago` provenance note moves with
   it — new SRI, and the upstream commit `59a1f91e`, which both the npm
   `gitHead` and the Git tag `3.6.1` resolve to. Its `LICENSE` hash is unchanged
   from the `3.6.0` review, so the licence text did not change across the bump,
@@ -27,7 +27,7 @@
 
 ### Changed
 
-- Update the exact Wrangler pin to `4.136.1`, regenerate the lockfile with npm
+- Update the exact Wrangler pin to `4.136.2`, regenerate the lockfile with npm
   and align the third-party inventory row. Deploy uses the lockfile-selected CLI
   (LCV-213; SPONSOR-28 / #263, GIT-230).
 

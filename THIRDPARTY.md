@@ -14,7 +14,7 @@ Worker-bundle report; dependency changes require a new inventory review.
 | prettier                  | ^3.9.6        | MIT               | development | https://www.npmjs.com/package/prettier                                                          |
 | typescript                | ^7.0.2        | Apache-2.0        | development | https://www.npmjs.com/package/typescript                                                        |
 | vitest                    | ^5.0.0        | MIT               | development | https://www.npmjs.com/package/vitest                                                            |
-| wrangler                  | 4.131.1       | MIT OR Apache-2.0 | development | https://www.npmjs.com/package/wrangler                                                          |
+| wrangler                  | 4.136.1       | MIT OR Apache-2.0 | development | https://www.npmjs.com/package/wrangler                                                          |
 
 ## Provenance notes
 
@@ -31,7 +31,7 @@ Worker-bundle report; dependency changes require a new inventory review.
   the same one recorded when `3.6.0` was reviewed: the licence text did not
   change across the bump, only the version identifier did. The earlier `3.4.0`
   assessment remains recorded in [Discussion #217](https://github.com/LCV-Ideas-Software/sponsor-motor/discussions/217).
-- The existing development-toolchain override selects `sharp@0.35.4`; its
+- The official Miniflare dependency selects `sharp@0.35.4`; its
   platform packages use the corresponding `@img` releases and libvips `1.3.3`.
   This does not change the three direct payment-runtime dependencies.
 

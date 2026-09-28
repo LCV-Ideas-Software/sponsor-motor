@@ -27,6 +27,9 @@
 
 ### Changed
 
+- Update the exact Wrangler pin to `4.142.0`, regenerate the npm lockfile and
+  align the third-party inventory row (SPONSOR-29, LCV-239).
+
 - Update the exact Wrangler pin to `4.137.0`, regenerate the lockfile with npm
   and align the third-party inventory row. Deploy uses the lockfile-selected CLI
   (LCV-214; SPONSOR-28 / #263, GIT-230).

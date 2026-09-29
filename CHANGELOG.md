@@ -27,6 +27,9 @@
 
 ### Changed
 
+- Pin the official Cloudflare Wrangler Action to v4.1.2 after the v4.1.1 tag
+  omitted its compiled `dist/index.mjs` entrypoint (LCV-241).
+
 - Update the exact Wrangler pin to `4.142.0`, regenerate the npm lockfile and
   align the third-party inventory row (SPONSOR-29, LCV-239).
 

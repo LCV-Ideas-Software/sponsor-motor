@@ -14,6 +14,10 @@
 
 ### Fixed
 
+- Limit the temporary Miniflare Undici override to the vulnerable `7.29.0`
+  request, allowing future upstream patched versions to resolve normally
+  (SPONSOR-31, LCV-241).
+
 - Align the inventory with the lockfile: `mercadopago` 3.6.0 to 3.6.1. The
   `mercadopago` provenance note moves with
   it — new SRI, and the upstream commit `59a1f91e`, which both the npm

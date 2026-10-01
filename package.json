@@ -39,12 +39,7 @@
     "prettier": "^3.9.9",
     "typescript": "^7.0.2",
     "vitest": "^5.0.1",
-    "wrangler": "4.143.0"
-  },
-  "overrides": {
-    "miniflare": {
-      "undici@7.29.0": "7.29.1"
-    }
+    "wrangler": "4.145.0"
   },
   "engines": {
     "node": ">=22"

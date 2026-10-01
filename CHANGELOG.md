@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Update the pinned Cloudflare Wrangler CLI to 4.145.0 and regenerate npm dependency locks.
+
 ### Added
 
 - Reproduce in full the MIT license texts of the three packages bundled into the
@@ -14,9 +16,9 @@
 
 ### Fixed
 
-- Limit the temporary Miniflare Undici override to the vulnerable `7.29.0`
-  request, allowing future upstream patched versions to resolve normally
-  (SPONSOR-31, LCV-241).
+- Remove the temporary Miniflare Undici override previously limited to the
+  vulnerable `7.29.0` request (SPONSOR-31, LCV-241). Wrangler 4.145.0 now
+  selects official Miniflare with patched Undici 7.29.1 directly (LCV-256).
 
 - Align the inventory with the lockfile: `mercadopago` 3.6.0 to 3.6.1. The
   `mercadopago` provenance note moves with

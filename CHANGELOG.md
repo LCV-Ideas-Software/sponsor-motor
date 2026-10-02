@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-- Update the pinned Cloudflare Wrangler CLI to 4.145.0 and regenerate npm dependency locks.
+- Update the pinned Cloudflare Wrangler CLI to 4.147.0 and regenerate npm dependency locks.
 
 ### Added
 
@@ -17,7 +17,7 @@
 ### Fixed
 
 - Remove the temporary Miniflare Undici override previously limited to the
-  vulnerable `7.29.0` request (SPONSOR-31, LCV-241). Wrangler 4.145.0 now
+  vulnerable `7.29.0` request (SPONSOR-31, LCV-241). Wrangler 4.147.0 now
   selects official Miniflare with patched Undici 7.29.1 directly (LCV-256).
 
 - Align the inventory with the lockfile: `mercadopago` 3.6.0 to 3.6.1. The

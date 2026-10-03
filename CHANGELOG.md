@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Atualizados os intervalos declarados do inventário direto conforme o manifesto npm vigente.
+
 - Atualizado o Vitest para 5.0.3, que seleciona o `why-is-node-running` oficial 3.2.1 sem `stackback`; manifestos e lockfiles regenerados pelo npm.
 
 - Update the pinned Cloudflare Wrangler CLI to 4.147.0 and regenerate npm dependency locks.

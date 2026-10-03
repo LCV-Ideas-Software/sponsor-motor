@@ -6,14 +6,14 @@ Worker-bundle report; dependency changes require a new inventory review.
 
 | Component                 | Version       | License           | Scope       | Source                                                                                          |
 | ------------------------- | ------------- | ----------------- | ----------- | ----------------------------------------------------------------------------------------------- |
-| hono | ^4.13.9 | MIT | runtime | https://www.npmjs.com/package/hono |
+| hono                      | ^4.13.9       | MIT               | runtime     | https://www.npmjs.com/package/hono                                                              |
 | mercadopago               | 3.6.1         | MIT               | runtime     | https://github.com/mercadopago/sdk-nodejs/blob/59a1f91e7c072cbda4e394267b24e7383ea3b1f3/LICENSE |
-| zod | ^4.6.5 | MIT | runtime | https://www.npmjs.com/package/zod |
-| @biomejs/biome | ^2.5.14 | MIT OR Apache-2.0 | development | https://www.npmjs.com/package/@biomejs/biome |
-| @cloudflare/workers-types | ^5.20260915.1 | MIT OR Apache-2.0 | development | https://www.npmjs.com/package/@cloudflare/workers-types |
-| prettier | ^3.9.9 | MIT | development | https://www.npmjs.com/package/prettier |
+| zod                       | ^4.6.5        | MIT               | runtime     | https://www.npmjs.com/package/zod                                                               |
+| @biomejs/biome            | ^2.5.14       | MIT OR Apache-2.0 | development | https://www.npmjs.com/package/@biomejs/biome                                                    |
+| @cloudflare/workers-types | ^5.20260915.1 | MIT OR Apache-2.0 | development | https://www.npmjs.com/package/@cloudflare/workers-types                                         |
+| prettier                  | ^3.9.9        | MIT               | development | https://www.npmjs.com/package/prettier                                                          |
 | typescript                | ^7.0.2        | Apache-2.0        | development | https://www.npmjs.com/package/typescript                                                        |
-| vitest | ^5.0.3 | MIT | development | https://www.npmjs.com/package/vitest |
+| vitest                    | ^5.0.3        | MIT               | development | https://www.npmjs.com/package/vitest                                                            |
 | wrangler                  | 4.147.0       | MIT OR Apache-2.0 | development | https://www.npmjs.com/package/wrangler                                                          |
 
 ## Provenance notes
